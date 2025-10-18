@@ -18,7 +18,7 @@ impl PluginCommand for CommandRepeat {
     }
 
     fn description(&self) -> &str {
-        "Repeat a tensor along specified dimensions to create a multidimensional tensor"
+        "Repeat a tensor along each dimension. Automatically expands dimensions if needed. (similar to tensor.repeat() in PyTorch)"
     }
 
     fn signature(&self) -> Signature {
@@ -54,10 +54,13 @@ impl PluginCommand for CommandRepeat {
         call: &nu_plugin::EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        // Get tensor ID from input
+        // ── source tensor must come through pipeline ───────────────────
+        // Pipeline-only design matches other shape ops (squeeze, unsqueeze, reshape)
         let input_value = input.into_value(call.head)?;
         let tensor_id = input_value.as_str()?;
-        // Get repeat sizes (rest arguments)
+
+        // ── get repeat sizes (variable number via .rest()) ────────────
+        // Using .rest() allows: torch repeat 2 3 4  (repeats along 3 dims)
         let sizes: Vec<i64> = call
             .rest(0)
             .map_err(|_| {
@@ -67,6 +70,7 @@ impl PluginCommand for CommandRepeat {
             .into_iter()
             .map(|v: Value| v.as_int())
             .collect::<Result<Vec<i64>, _>>()?;
+        // ── validate sizes before processing ───────────────────────────
         if sizes.is_empty() {
             return Err(LabeledError::new("Invalid input")
                 .with_label("At least one repeat size must be provided", call.head));
@@ -75,7 +79,8 @@ impl PluginCommand for CommandRepeat {
             return Err(LabeledError::new("Invalid input")
                 .with_label("All repeat sizes must be at least 1", call.head));
         }
-        // Look up tensor in registry
+
+        // ── fetch tensor ───────────────────────────────────────────────
         let mut registry = TENSOR_REGISTRY.lock().unwrap();
         let tensor = registry
             .get(tensor_id)
@@ -83,30 +88,35 @@ impl PluginCommand for CommandRepeat {
                 LabeledError::new("Tensor not found").with_label("Invalid tensor ID", call.head)
             })?
             .shallow_clone();
-        // Get tensor dimensions
+        // ── auto-expand dimensions if needed ───────────────────────────
+        // If sizes.len() > tensor.dim(), unsqueeze leading dimensions
+        // Example: [3] tensor with sizes [2, 4] → unsqueeze to [1, 3] → repeat to [2, 12]
         let dims = tensor.size();
-        // Adjust tensor dimensions to match the length of sizes by unsqueezing if necessary
         let mut working_tensor = tensor;
         let target_dims = sizes.len();
         let current_dims = dims.len();
+
         if target_dims > current_dims {
             // Add leading singleton dimensions to match sizes length
             for _ in 0..(target_dims - current_dims) {
                 working_tensor = working_tensor.unsqueeze(0);
             }
         }
-        // Now repeat_dims can be directly set to sizes (or padded with 1s if sizes is shorter)
+
+        // ── build repeat dimensions vector ─────────────────────────────
+        // If tensor has more dims than sizes, pad sizes with 1s (no repeat on trailing dims)
         let final_dims = working_tensor.size();
         let mut repeat_dims = vec![1; final_dims.len()];
         for (i, &size) in sizes.iter().enumerate() {
             repeat_dims[i] = size;
         }
-        // Apply repeat operation
+
+        // ── perform repeat operation ───────────────────────────────────
         let result_tensor = working_tensor.repeat(&repeat_dims);
-        // Store result in registry with new ID
+
+        // ── store & return ─────────────────────────────────────────────
         let new_id = Uuid::new_v4().to_string();
         registry.insert(new_id.clone(), result_tensor);
-        // Return new ID wrapped in PipelineData
         Ok(PipelineData::Value(Value::string(new_id, call.head), None))
     }
 }
