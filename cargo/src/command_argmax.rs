@@ -112,6 +112,19 @@ torch argmax $a --dim 1 --keepdim true | torch value
         })?.shallow_clone();
 
         //---------------- argmax ----------------------------------------
+        // Validate dimension if provided
+        if let Some(dim) = dim_opt {
+            let num_dims = t.size().len() as i64;
+            if dim < 0 || dim >= num_dims {
+                return Err(LabeledError::new("Invalid dimension").with_label(
+                    format!(
+                        "Dimension {dim} out of bounds for tensor with {num_dims} dimensions"
+                    ),
+                    call.head,
+                ));
+            }
+        }
+
         // tch-rs exposes argmax(dim, keepdim) where dim: Option<i64>
         let result = t.argmax(dim_opt, keepdim);
 
