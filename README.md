@@ -1,17 +1,29 @@
 # Nutorch
 
+**PyTorch tensor operations for Nushell** - GPU-accelerated machine learning
+from the command line.
+
 Nutorch is a [Nushell](https://github.com/nushell/nushell) plugin that wraps
 [tch-rs](https://github.com/LaurentMazare/tch-rs), which itself is a wrapper for
 libtorch, the C++ backend of [PyTorch](https://pytorch.org/).
 
-In other words, **Nutorch is to Nushell what PyTorch is to Python.**
+**In other words: Nutorch is to Nushell what PyTorch is to Python.**
 
-## Why?
+---
 
-Because Nushell is a shell, not just a programming language, this makes it
-possible to operate on tensors on your GPU directly from the command line,
-making Nutorch one of the most convenient ways to do data analysis if you spend
-a lot of time in the terminal.
+**Current Status:** 40 PyTorch methods implemented with 100% quality coverage
+**Project Stage:** Alpha - Proof of concept, functional for neural network
+training
+
+---
+
+## Documentation
+
+- **[README.md](README.md)** - You are here (Getting Started & Installation)
+- **[CLAUDE.md](CLAUDE.md)** - Architecture, development guide,
+  counter-intuitive facts
+- **[TODO.md](TODO.md)** - Implementation status, quality tracking, roadmap
+- **[cargo/README.md](cargo/README.md)** - Additional build notes
 
 ## Demo
 
@@ -30,9 +42,30 @@ timeit {torch full [20000, 20000] 1 --device cuda | torch mm (torch full [20000,
 
 ![Matmul Demo](./raw-images/screenshot-matmul.png)
 
+## Why?
+
+Because Nushell is a shell, not just a programming language, this makes it
+possible to operate on tensors on your GPU directly from the command line,
+making Nutorch one of the most convenient ways to do data analysis if you spend
+a lot of time in the terminal.
+
+## Features
+
+- **Dual Input Pattern**: Commands work both PyTorch-style and Nushell-style
+  ([learn more in CLAUDE.md](CLAUDE.md#dual-input-pattern-core-design-principle))
+- **40 PyTorch Operations**: Tensor creation, math ops, shape manipulation,
+  autograd
+- **GPU Acceleration**: Full support for CPU, CUDA, and MPS (Apple Silicon)
+- **Autograd Support**: Automatic differentiation and gradient-based
+  optimization
+- **Shell Integration**: Combine with standard Nushell commands for powerful
+  workflows
+
+See [TODO.md](TODO.md) for the complete list of implemented methods and roadmap.
+
 ## Installation
 
-### Prequisites
+### Prerequisites
 
 - You must have [Nushell](https://www.nushell.sh/) installed to use Nutorch.
 - You must have [libtorch](https://pytorch.org/get-started/locally/) (PyTorch)
@@ -40,14 +73,14 @@ timeit {torch full [20000, 20000] 1 --device cuda | torch mm (torch full [20000,
 - You must have the [Rust toolchain](https://www.rust-lang.org/tools/install)
   installed on your system.
 
-**Nurtorch is only tested with macOS at this time.** While it should work on any
+**Nutorch is only tested with macOS at this time.** While it should work on any
 platform in principle, it will most likely not work out of the box with Windows
 or Linux, and may require customization. **I will happily accept pull requests
 if you can make it work on Windows or Linux!**
 
 ### Install via Nushell and Cargo
 
-I assume you are using macOS have have installed all the prerequisites.
+I assume you are using macOS and have installed all the prerequisites.
 
 You can install Nutorch globally or locally. Either way, you will need to know
 the absolute path to the `nu_plugin_torch` binary to be able to run it. You will
@@ -71,8 +104,8 @@ $env.LD_LIBRARY_PATH = ($env.LIBTORCH | path join "lib")
 $env.DYLD_LIBRARY_PATH = ($env.LIBTORCH | path join "lib")
 ```
 
-You can add that code to your Nushell configuration file, or souce them in a
-local enviornment.
+You can add that code to your Nushell configuration file, or source them in a
+local environment.
 
 Next, you will need to install the plugin. Let us assume you want to install it
 globally. You can do so by running the following command:
@@ -81,8 +114,8 @@ globally. You can do so by running the following command:
 cargo install nutorch
 ```
 
-After install, you should will need to know the absolute path to the
-`nu_plugin_torch` binary. You can find it in the Cargo bin directory, which is:
+After install, you will need to know the absolute path to the `nu_plugin_torch`
+binary. You can find it in the Cargo bin directory, which is:
 
 ```
 ~/.cargo/bin/nu_plugin_torch
@@ -117,16 +150,10 @@ Output:
 ╰───┴──────╯
 ```
 
-### Recommended Supplementary Tools
-
-To use Nutorch, it is also recommended to install and use
-[Termplot](https://github.com/termplot/termplot), which is a plotting tool
-specifically designed to work with Nutorch.
-
-### Garbage Collection
+### Garbage Collection Configuration
 
 After installing the plugin, you may want to lengthen the garbage collection
-interval in your nushell settings:
+interval in your Nushell settings:
 
 ```nu
 $env.config.plugin_gc = {
@@ -142,6 +169,12 @@ By default, all tensors are deleted (garbage collected by Nushell) after 10
 seconds. By increasing this to 10 minutes or longer, this gives you time to
 perform other functions before your tensors are deleted from memory.
 
+### Recommended Supplementary Tools
+
+To use Nutorch effectively, it is also recommended to install and use
+[Termplot](https://github.com/termplot/termplot), which is a plotting tool
+specifically designed to work with Nutorch.
+
 ## Usage
 
 Nutorch is a plugin for Nushell that provides a set of commands for working with
@@ -149,7 +182,7 @@ tensors. The basic idea is that you load tensors into memory, either on your CPU
 or GPU, and perform operations on them, and then read them back to Nushell for
 further processing or visualization.
 
-The basic usage is as follows:
+### Basic Usage
 
 ```nu
 # Load a tensor into memory
@@ -159,6 +192,8 @@ let $result = $tensor | torch add (torch tensor [4 5 6] --device mps)
 # Read the result back to Nushell
 $result | torch value
 ```
+
+### Pipeline-Style Operations
 
 It is common to use pipes with Nutorch commands, which is one of the primary
 benefits of Nushell. You can chain commands together to perform complex
@@ -173,6 +208,26 @@ torch full [1000, 1000] 1 --device mps | torch mm (torch full [1000, 1000] 1 --d
 That command performs a large matrix multiplication on your GPU and then prints
 the mean of the result.
 
+### Dual Input Pattern
+
+Nutorch commands support both PyTorch-style and Nushell-style syntax. This means
+you can write commands in a way that feels natural whether you're coming from
+PyTorch or Nushell:
+
+```nu
+# Pipeline style (Nushell-like)
+$tensor1 | torch add $tensor2
+
+# Argument style (PyTorch-like)
+torch add $tensor1 $tensor2
+```
+
+Both styles work for most operations! For a deep dive on this design principle,
+see the
+[Dual Input Pattern section in CLAUDE.md](CLAUDE.md#dual-input-pattern-core-design-principle).
+
+### Available Commands
+
 You can see what commands are available by running:
 
 ```nu
@@ -180,70 +235,30 @@ torch --help
 ```
 
 The commands are designed to be similar to the PyTorch API, so that wherever
-possible you can insert the same commands with the same names in the same order
-as PyTorch. Furthermore, the commands are also designed to be as Nushelly as
-possible, meaning you can pipe in input tensors for most commands where
-appropriate, make powerful one-liners possible.
+possible you can use the same command names with the same arguments in the same
+order as PyTorch. Furthermore, the commands are also designed to be as Nushelly
+as possible, meaning you can pipe in input tensors for most commands where
+appropriate, making powerful one-liners possible.
 
-## TODO
+## Project Status
 
-Nutorch is an alpha-quality project. Currently, the existing set of commands are
-technically adequate to train neural networks. However, the vast majority of the
-PyTorch API is not yet implemented. The following is a list of commands that are
-currently implemented, and those that are planned for future implementation.
+**Current Implementation:** 40 PyTorch methods with 100% quality coverage
 
-### Command Attributes
+See [TODO.md](TODO.md) for:
 
-For MVP:
+- Full list of implemented methods by category
+- Quality metrics and test coverage for each method
+- Missing PyTorch methods and roadmap
+- Progress toward v1.0 release
 
-- [x] First pass: Make neural network work
-- [ ] Second pass: Update all tensor methods and test them
-- [ ] Third pass: Look for any issues with tensor methods.
+## Development
 
-For manipulating tensors:
+See [CLAUDE.md](CLAUDE.md) for:
 
-- [ ] Always check dimensionality makes sense if necessary
-- [ ] Always take a tensor as input if possible
-- [ ] Always take a list of tensors as input if PyTorch takes a list or var args
-      for arguments
-- [ ] Always take a tensor as argument if possible
-- [ ] Always take a list of tensors as argument if PyTorch takes a list or var
-      args for arguments
-
-For creating tensors:
-
-- [ ] Always take `dtype` as an argument if possible
-- [ ] Always take `device` as an argument if possible
-- [ ] Always take `requires_grad` as an argument if possible
-
-### Commands
-
-- [x] manual_seed
-- [x] linspace
-- [x] randn
-- [x] mm
-- [x] full
-- [x] tensor
-- [x] mul
-- [x] add
-- [x] sub
-- [x] div
-- [x] neg
-- [x] gather
-- [x] squeeze
-- [x] unsqueeze
-- [x] detach
-- [x] arange
-- [x] stack
-- [x] repeat
-- [x] repeat_interleave
-- [ ] all other tch tensor operations
-- [ ] tch nn module
-- [x] add autograd setting to torch.tensor
-- [x] add autograd setting to torch.randn
-- [x] add autograd setting to torch.full
-- [x] add autograd setting to torch.mm
-- [x] add autograd setting to torch.linspace
+- Architecture deep dive and implementation details
+- Development workflow and testing procedures
+- Counter-intuitive facts about the implementation
+- File structure and patterns
 
 ## Copyright
 
