@@ -103,11 +103,51 @@ $v | torch reshape [3 -1] | torch shape        # → [3, 2]
                 .with_label("Invalid source tensor ID", call.head)
         })?.shallow_clone();
 
-        // ── reshape (tch will error if incompatible) ───────────────────
-        // Validation is delegated to PyTorch's C++ backend via tch-rs:
-        //   - Checks element count compatibility
-        //   - Handles -1 inference (at most one -1 allowed)
-        //   - Provides clear error messages for invalid reshapes
+        // ── validate reshape before calling tch-rs ─────────────────────
+        // This prevents panics from invalid reshapes
+        let src_numel = src.numel() as i64;
+        let mut negative_one_count = 0;
+        let mut product: i64 = 1;
+
+        for &dim in &shape {
+            if dim == -1 {
+                negative_one_count += 1;
+            } else if dim == 0 {
+                return Err(LabeledError::new("Invalid shape")
+                    .with_label("Shape dimensions cannot be 0", call.head));
+            } else if dim < -1 {
+                return Err(LabeledError::new("Invalid shape")
+                    .with_label(format!("Shape dimensions must be positive or -1, got {}", dim), call.head));
+            } else {
+                product = product.saturating_mul(dim);
+            }
+        }
+
+        if negative_one_count > 1 {
+            return Err(LabeledError::new("Invalid shape")
+                .with_label("At most one dimension can be -1", call.head));
+        }
+
+        if negative_one_count == 1 {
+            if product == 0 || src_numel % product != 0 {
+                return Err(LabeledError::new("Invalid shape")
+                    .with_label(
+                        format!("Cannot reshape tensor of {} elements with shape {:?}", src_numel, shape),
+                        call.head
+                    ));
+            }
+        } else {
+            if product != src_numel {
+                return Err(LabeledError::new("Invalid shape")
+                    .with_label(
+                        format!("Cannot reshape tensor of {} elements to shape {:?} (requires {} elements)",
+                                src_numel, shape, product),
+                        call.head
+                    ));
+            }
+        }
+
+        // ── reshape (now safe, validation done above) ──────────────────
         let result = src.reshape(&shape);
 
         // ── store & return ─────────────────────────────────────────────

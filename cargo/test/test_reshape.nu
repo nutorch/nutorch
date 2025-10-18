@@ -112,3 +112,50 @@ def "Test reshape from scalar" [] {
   # [] (scalar) reshaped to [1]
   assert ($result == [1])
 }
+
+@test
+def "Error case with invalid tensor ID" [] {
+  let input_data = $in
+  try {
+    "invalid-uuid" | torch reshape [2 3]
+    error make {msg: "Expected error from invalid tensor ID"}
+  } catch {
+    # expected
+  }
+}
+
+@test
+def "Error case with incompatible size" [] {
+  let input_data = $in
+  try {
+    let v = ([1 2 3 4 5] | torch tensor)
+    $v | torch reshape [2 3]
+    error make {msg: "Expected error from incompatible reshape"}
+  } catch {
+    # expected - 5 elements cannot reshape to 2x3=6
+  }
+}
+
+@test
+def "Error case with multiple -1" [] {
+  let input_data = $in
+  try {
+    let v = ([1 2 3 4 5 6] | torch tensor)
+    $v | torch reshape [-1 -1]
+    error make {msg: "Expected error from multiple -1"}
+  } catch {
+    # expected - can only have one -1
+  }
+}
+
+@test
+def "Error case with zero dimension" [] {
+  let input_data = $in
+  try {
+    let v = ([1 2 3 4] | torch tensor)
+    $v | torch reshape [0 4]
+    error make {msg: "Expected error from zero dimension"}
+  } catch {
+    # expected
+  }
+}
