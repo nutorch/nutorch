@@ -198,6 +198,29 @@ if dim < 0 || dim >= tensor_rank {
 **Why?** tch-rs errors from C++ are opaque and crash-prone. Rust-side validation
 provides better error messages.
 
+### 9. **Dual Input Isn't Optional - It's Core Identity**
+
+Every command implements dual input not for convenience, but because it's **how
+the library bridges PyTorch and Nushell paradigms**. When implementing new
+commands:
+
+❌ **Wrong mindset**: "Should I add dual input support?"
+✅ **Correct mindset**: "Which dual input pattern does this operation type
+require?"
+
+**Operation Type Requirements**:
+- **Binary ops** (add, mul, mm): MUST support both `$t1 | torch op $t2` AND
+  `torch op $t1 $t2`
+- **Unary ops** (sin, mean, shape): MUST support both `$t | torch op` AND
+  `torch op $t`
+- **List ops** (cat, stack): MUST support both `[$ts] | torch op` AND
+  `torch op [$ts]`
+- **Utilities** (manual_seed, devices): Context-dependent, often args-only
+
+**Missing dual input support is like missing a required parameter** - it breaks
+the API contract and makes the command feel inconsistent with the rest of the
+library.
+
 ## File Structure
 
 ```
@@ -380,16 +403,63 @@ ND tensor → Value::List (nested, recursive)
 **Element extraction**: Uses `tensor.get(i)` in loop (no direct `to_vec()` in
 tch-rs)
 
-### Dual Input Pattern
+### Dual Input Pattern (CORE DESIGN PRINCIPLE)
 
-**Every tensor operation supports both**:
+**This is not just a feature - it's the fundamental design principle that makes Nutorch feel native to both ecosystems.**
+
+#### Why This Matters
+
+PyTorch has two API styles:
+- **Method form**: `tensor1.add(tensor2)` - object-oriented
+- **Function form**: `torch.add(tensor1, tensor2)` - functional
+
+Nushell's paradigm is pipeline-based:
+- Data flows left-to-right through transformations
+- Commands consume stdin and produce stdout
+
+**Nutorch bridges both worlds by supporting BOTH patterns:**
+
+#### Binary Operations
+
+**Every binary operation supports both**:
 
 ```nushell
-# Pipeline input
-$tensor | torch xxx
+# Pipeline + Argument (feels like tensor1.add(tensor2))
+([1] | torch tensor) | torch add ([2] | torch tensor)
 
-# Argument input
-torch xxx $tensor
+# Two Arguments (feels like torch.add(tensor1, tensor2))
+torch add ([1] | torch tensor) ([2] | torch tensor)
+```
+
+**Python PyTorch equivalents**:
+```python
+# Method form
+torch.tensor([1]).add(torch.tensor([2]))
+# or with operator
+torch.tensor([1]) + torch.tensor([2])
+
+# Function form
+torch.add(torch.tensor([1]), torch.tensor([2]))
+```
+
+#### Unary Operations
+
+```nushell
+# Pipeline (feels like tensor.sin())
+$tensor | torch sin
+
+# Argument (feels like torch.sin(tensor))
+torch sin $tensor
+```
+
+#### List Operations
+
+```nushell
+# Pipeline
+[$t1 $t2] | torch cat --dim 0
+
+# Argument
+torch cat [$t1 $t2] --dim 0
 ```
 
 **Implementation** (standard across all commands):
@@ -407,6 +477,18 @@ match (&piped, &arg0) {
     (Some(_), Some(_)) => Err("Conflicting input"),  // XOR enforcement
     _ => Ok(...)
 }
+```
+
+**Benefits**:
+1. **PyTorch users** can write familiar imperative code
+2. **Nushell users** can build natural pipelines
+3. **Complex expressions** remain readable in either style
+4. **Gradual learning** - start imperative, adopt pipelines as comfortable
+
+**Example of mixed style**:
+```nushell
+# Readable complex expression mixing both patterns
+let $result = torch softmax (torch add ($x | torch mm $w) $b) --dim 1
 ```
 
 ### Autograd Implementation
@@ -618,8 +700,15 @@ and runtime.
 1. **PyTorch API compatibility** - Command names and argument order match
    PyTorch where possible
 2. **Nushell idioms** - Pipeline-friendly, structured data output
-3. **Explicit over implicit** - Manual device placement, no auto-casting
-4. **Proof-of-concept first** - Focus on demonstrating feasibility, not
+3. **Dual Input Pattern - CORE PRINCIPLE** - Every command mirrors PyTorch's
+   method/function duality while embracing Nushell's pipeline philosophy:
+   - Binary ops: `$t1 | torch add $t2` OR `torch add $t1 $t2`
+   - Unary ops: `$t | torch sin` OR `torch sin $t`
+   - Enables both imperative (Python-like) and functional (Nushell-like) styles
+   - Users can compose pipelines naturally while maintaining PyTorch familiarity
+   - **This is not optional** - it's how the library bridges both ecosystems
+4. **Explicit over implicit** - Manual device placement, no auto-casting
+5. **Proof-of-concept first** - Focus on demonstrating feasibility, not
    completeness
-5. **Shell-native deep learning** - Make GPU programming accessible from
+6. **Shell-native deep learning** - Make GPU programming accessible from
    terminal

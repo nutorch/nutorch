@@ -4,6 +4,56 @@ This file tracks the implementation status and quality of all PyTorch methods in
 Nutorch. Each method must meet standardized quality criteria before being
 considered complete.
 
+## Core Design Principles
+
+### Dual Input Pattern: PyTorch API Parity + Nushell Idioms
+
+**This is the fundamental design principle that makes Nutorch feel native to both PyTorch and Nushell users.**
+
+Nutorch commands mirror PyTorch's dual API (method vs function form) while embracing Nushell's pipeline philosophy:
+
+#### Binary Operations (add, sub, mul, div, mm, maximum)
+- **Pipeline + Argument**: `$t1 | torch add $t2` ≈ `tensor1.add(tensor2)`
+- **Two Arguments**: `torch add $t1 $t2` ≈ `torch.add(tensor1, tensor2)`
+
+**Example**:
+```nushell
+# Pipeline + Argument (feels like tensor1.add(tensor2))
+([1] | torch tensor) | torch add ([2] | torch tensor)
+
+# Two Arguments (feels like torch.add(tensor1, tensor2))
+torch add ([1] | torch tensor) ([2] | torch tensor)
+```
+
+**Python PyTorch equivalent**:
+```python
+# Method form
+torch.tensor([1]).add(torch.tensor([2]))
+
+# Function form
+torch.add(torch.tensor([1]), torch.tensor([2]))
+```
+
+#### Unary Operations (sin, exp, neg, mean, softmax, shape, etc.)
+- **Pipeline**: `$t | torch sin` ≈ `tensor.sin()`
+- **Argument**: `torch sin $t` ≈ `torch.sin(tensor)`
+
+#### List Operations (cat, stack)
+- **Pipeline**: `[$t1 $t2] | torch cat` ≈ N/A (PyTorch only has function form)
+- **Argument**: `torch cat [$t1 $t2]` ≈ `torch.cat([tensor1, tensor2])`
+
+### Why This Flexibility Matters
+
+This dual input pattern enables:
+1. **Imperative style** (like Python): `torch add $a $b`
+2. **Functional pipelines** (like Nushell): `$a | torch add $b | torch mean`
+3. **Natural composition**: Mix styles for readable complex expressions
+4. **Gradual learning**: Start with imperative, adopt pipelines as comfortable
+
+**Every command must implement the appropriate dual input pattern for its operation type.**
+
+---
+
 ## Quality Checklist Legend
 
 For each method, we track:
@@ -11,7 +61,10 @@ For each method, we track:
 - **Test Coverage**: Has at least one test file
 - **Error Tests**: Tests include error/edge cases
 - **Helper Usage**: Uses centralized helper functions from `lib.rs`
-- **Dual Input**: Supports both pipeline and argument input (where applicable)
+- **Dual Input**: Implements correct dual input pattern for operation type:
+  - Binary ops: BOTH `$t1 | torch op $t2` AND `torch op $t1 $t2`
+  - Unary ops: BOTH `$t | torch op` AND `torch op $t`
+  - List ops: BOTH `[$ts] | torch op` AND `torch op [$ts]`
 - **Examples**: Has comprehensive examples in signature
 - **Validation**: Validates inputs (dimensions, shapes, etc.)
 - **Documentation**: Has clear description and parameter docs
@@ -664,6 +717,15 @@ collection)
 - Validation: 7/39 (18%)
 - Documentation: 0/39 (0%)
 
+### API Design Compliance (Dual Input Pattern)
+
+- Binary Ops with Full Dual Input: 5/5 (100%)
+  - All support both `$t1 | torch op $t2` AND `torch op $t1 $t2`
+- Unary Ops with Full Dual Input: 8/11 (73%)
+  - Missing: sin, exp, max (need to verify argument form)
+- List Ops with Full Dual Input: 2/2 (100%)
+  - cat, stack both support dual input
+
 ### Path to 1.0
 
 To reach version 1.0, all currently implemented methods must achieve:
@@ -684,9 +746,12 @@ To reach version 1.0, all currently implemented methods must achieve:
    `get_kind_from_call()`, `add_grad_from_call()` where applicable, and new
    input validation helpers once created.
 
-2. **Dual Input**: Most commands should support both pipeline (`$t | torch cmd`)
-   and argument (`torch cmd $t`) input patterns. Exceptions are utilities like
-   `manual_seed` and `devices`.
+2. **Dual Input Pattern - CORE DESIGN PRINCIPLE**: This is NOT just a feature,
+   it's the fundamental design principle that bridges PyTorch and Nushell
+   paradigms. Every command must support the appropriate dual input pattern for
+   its operation type. This makes Nutorch feel native to both PyTorch users (who
+   expect method/function duality) and Nushell users (who expect pipeline
+   composition). Missing dual input support breaks the API contract.
 
 3. **Error Tests**: Should test invalid dimensions, mismatched shapes, device
    conflicts, and other error conditions.
