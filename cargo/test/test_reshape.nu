@@ -49,3 +49,12 @@ def "Test reshape with -1 at start" [] {
   # [12] reshaped to [-1, 3] becomes [4, 3]
   assert ($result == [4 3])
 }
+
+@test
+def "Test reshape preserves values" [] {
+  let input_data = $in
+  let v = ([1 2 3 4] | torch tensor)
+  let result = ($v | torch reshape [2 2] | torch value)
+  # Values should be preserved in row-major order
+  assert ($result == [[1 2] [3 4]])
+}
