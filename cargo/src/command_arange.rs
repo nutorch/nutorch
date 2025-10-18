@@ -92,6 +92,16 @@ impl PluginCommand for CommandArange {
                 example: "torch arange 1 5 0.5 --dtype float | torch value",
                 result: None,
             },
+            Example {
+                description: "Create a tensor with gradient tracking enabled",
+                example: "torch arange 0 10 --requires_grad true",
+                result: None,
+            },
+            Example {
+                description: "Create a tensor on CPU device",
+                example: "torch arange 0 5 --device cpu | torch value",
+                result: None,
+            },
         ]
     }
 

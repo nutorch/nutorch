@@ -73,7 +73,7 @@ For each method, we track:
 
 - **Total Methods Implemented**: 39
 - **Methods with Tests**: 29 (74%)
-- **Methods Meeting All Quality Criteria**: 4 (10%)
+- **Methods Meeting All Quality Criteria**: 5 (13%)
 
 ---
 
@@ -132,12 +132,12 @@ For each method, we track:
 **Command**: `torch arange`
 
 - [x] Test Coverage
-- [ ] Error Tests
-- [ ] Helper Usage
-- [ ] Dual Input
+- [x] Error Tests
+- [x] Helper Usage
+- [x] Dual Input
 - [x] Examples
-- [ ] Validation
-- [ ] Documentation
+- [x] Validation
+- [x] Documentation
 
 ---
 
