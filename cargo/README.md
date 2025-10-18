@@ -24,4 +24,4 @@ The nushell tests should then execute, and all should pass.
 
 ## Information
 
-Copyright (C) 2025 Ryan X. Charles
+Copyright (C) 2025 Identellica LLC

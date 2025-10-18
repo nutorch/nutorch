@@ -247,4 +247,4 @@ For creating tensors:
 
 ## Copyright
 
-Copyright (C) 2025 EarthBucks Inc.
+Copyright (C) 2025 Identellica LLC
