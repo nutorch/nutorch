@@ -25,7 +25,7 @@ impl PluginCommand for CommandZeroGrad {
     }
 
     fn description(&self) -> &str {
-        "Set the .grad field of the given tensor(s) to zero (like Tensor.zero_grad() in PyTorch)"
+        "Zero out the gradient buffers for one or more tensors. (similar to optimizer.zero_grad() or tensor.grad.zero_() in PyTorch)"
     }
 
     fn signature(&self) -> Signature {
@@ -77,9 +77,9 @@ torch zero_grad [$w1, $w2]
         call: &nu_plugin::EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        //------------------------------------------------------------------
-        // 1. Collect tensor IDs either from pipeline or argument
-        //------------------------------------------------------------------
+        // ── dual input: pipeline OR argument (not both) ───────────────
+        // Supports: $t | torch zero_grad   OR   [$ts] | torch zero_grad
+        //       OR  torch zero_grad $t     OR   torch zero_grad [$ts]
         let piped_val: Option<Value> = match &input {
             PipelineData::Value(v, _) => Some(v.clone()),
             PipelineData::Empty => None,
@@ -91,6 +91,7 @@ torch zero_grad [$w1, $w2]
 
         let arg_val: Option<Value> = call.nth(0);
 
+        // ── validate exactly one input source ─────────────────────────
         match (&piped_val, &arg_val) {
             (None, None) => {
                 return Err(LabeledError::new("Missing input").with_label(
@@ -107,6 +108,7 @@ torch zero_grad [$w1, $w2]
             _ => {}
         }
 
+        // ── extract tensor IDs (single or list) ───────────────────────
         let list_val = piped_val.or(arg_val).unwrap();
 
         // Accept either single-ID string or list-of-IDs
@@ -118,10 +120,17 @@ torch zero_grad [$w1, $w2]
             vec![list_val.as_str().map(|s| s.to_string())?]
         };
 
-        //------------------------------------------------------------------
-        // 2. Fetch tensors and clear grads
-        //------------------------------------------------------------------
+        if ids.is_empty() {
+            return Err(
+                LabeledError::new("Invalid input").with_label("Tensor list is empty", call.head)
+            );
+        }
+
+        // ── fetch tensors from registry ───────────────────────────────
         let reg = TENSOR_REGISTRY.lock().unwrap();
+
+        // ── zero out gradients for each tensor ────────────────────────
+        // Use no_grad to disable gradient tracking during gradient clearing
         tch::no_grad(|| {
             for id in &ids {
                 let t = reg.get(id).ok_or_else(|| {
@@ -129,14 +138,13 @@ torch zero_grad [$w1, $w2]
                         .with_label(format!("Invalid tensor ID: {id}"), call.head)
                 })?;
                 let mut tensor: Tensor = t.shallow_clone();
-                tensor.zero_grad(); // in-place; ignore returned Result
+                // In-place operation: sets gradient buffer to zero
+                tensor.zero_grad();
             }
-            Ok::<(), LabeledError>(()) // propagate any not-found error
-        })?; // ? outside closure
+            Ok::<(), LabeledError>(())
+        })?;
 
-        //------------------------------------------------------------------
-        // 3. Return the same list of IDs
-        //------------------------------------------------------------------
+        // ── return same tensor IDs for chaining ───────────────────────
         let out_vals: Vec<Value> = ids
             .into_iter()
             .map(|id| Value::string(id, call.head))

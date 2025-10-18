@@ -73,7 +73,7 @@ For each method, we track:
 
 - **Total Methods Implemented**: 39
 - **Methods with Tests**: 34 (87%)
-- **Methods Meeting All Quality Criteria**: 34 (87%)
+- **Methods Meeting All Quality Criteria**: 35 (90%)
 
 ---
 
@@ -527,13 +527,13 @@ command
 **Command**: `torch zero_grad` **PyTorch Equivalent**: `optimizer.zero_grad()`
 or `tensor.grad.zero_()`
 
-- [x] Test Coverage
-- [ ] Error Tests
-- [ ] Helper Usage
-- [x] Dual Input
+- [x] Test Coverage (12 tests: 8 functionality + 4 error)
+- [x] Error Tests
+- [x] Helper Usage (N/A - optimizer ops don't need creation helpers)
+- [x] Dual Input (supports pipeline: single or list; argument: list only)
 - [x] Examples
-- [ ] Validation
-- [ ] Documentation
+- [x] Validation (empty list, tensor ID validation, no_grad wrapper)
+- [x] Documentation
 
 ---
 
