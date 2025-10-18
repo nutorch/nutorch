@@ -1,10 +1,13 @@
 # TODO - Nutorch Implementation Status
 
-This file tracks the implementation status and quality of all PyTorch methods in Nutorch. Each method must meet standardized quality criteria before being considered complete.
+This file tracks the implementation status and quality of all PyTorch methods in
+Nutorch. Each method must meet standardized quality criteria before being
+considered complete.
 
 ## Quality Checklist Legend
 
 For each method, we track:
+
 - **Test Coverage**: Has at least one test file
 - **Error Tests**: Tests include error/edge cases
 - **Helper Usage**: Uses centralized helper functions from `lib.rs`
@@ -24,7 +27,9 @@ For each method, we track:
 ## Tensor Creation Operations
 
 ### `torch.tensor(data, dtype=None, device=None, requires_grad=False)`
+
 **Command**: `torch tensor`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [x] Helper Usage (device, dtype, requires_grad)
@@ -34,7 +39,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.full(size, fill_value, dtype=None, device=None, requires_grad=False)`
+
 **Command**: `torch full`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -44,7 +51,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.randn(*size, dtype=None, device=None, requires_grad=False)`
+
 **Command**: `torch randn`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -54,7 +63,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.linspace(start, end, steps, dtype=None, device=None, requires_grad=False)`
+
 **Command**: `torch linspace`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -64,7 +75,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.arange(start, end, step, dtype=None, device=None)`
+
 **Command**: `torch arange`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -78,7 +91,9 @@ For each method, we track:
 ## Binary Element-wise Operations
 
 ### `tensor.add(other, alpha=1)`
+
 **Command**: `torch add`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -88,7 +103,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.sub(other)`
+
 **Command**: `torch sub`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -98,7 +115,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.mul(other)`
+
 **Command**: `torch mul`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -108,7 +127,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.div(other)`
+
 **Command**: `torch div`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -118,7 +139,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.maximum(input, other)`
+
 **Command**: `torch maximum`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -132,7 +155,9 @@ For each method, we track:
 ## Unary Element-wise Operations
 
 ### `tensor.neg()`
+
 **Command**: `torch neg`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -142,7 +167,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.sin()`
+
 **Command**: `torch sin`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -152,7 +179,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.exp()`
+
 **Command**: `torch exp`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -162,7 +191,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.detach()`
+
 **Command**: `torch detach`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -176,7 +207,9 @@ For each method, we track:
 ## Reduction Operations
 
 ### `tensor.mean(dim=None, keepdim=False, dtype=None)`
+
 **Command**: `torch mean`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [x] Helper Usage (dtype)
@@ -186,7 +219,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.max(dim=None, keepdim=False)`
+
 **Command**: `torch max`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -196,7 +231,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.argmax(dim=None, keepdim=False)`
+
 **Command**: `torch argmax`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -210,7 +247,9 @@ For each method, we track:
 ## Matrix Operations
 
 ### `tensor.mm(mat2)`
+
 **Command**: `torch mm`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -220,7 +259,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.t()`
+
 **Command**: `torch t`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -234,7 +275,9 @@ For each method, we track:
 ## Shape Manipulation
 
 ### `tensor.shape` (property)
+
 **Command**: `torch shape`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -244,7 +287,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.squeeze(dim=None)`
+
 **Command**: `torch squeeze`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -254,7 +299,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.unsqueeze(dim)`
+
 **Command**: `torch unsqueeze`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -264,7 +311,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.reshape(*shape)`
+
 **Command**: `torch reshape`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -274,7 +323,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.repeat(*sizes)`
+
 **Command**: `torch repeat`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -284,7 +335,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.repeat_interleave(repeats, dim=None)`
+
 **Command**: `torch repeat_interleave`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -294,7 +347,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.cat(tensors, dim=0)`
+
 **Command**: `torch cat`
+
 - [x] Test Coverage
 - [x] Error Tests
 - [ ] Helper Usage
@@ -304,7 +359,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `torch.stack(tensors, dim=0)`
+
 **Command**: `torch stack`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -318,7 +375,9 @@ For each method, we track:
 ## Indexing & Selection
 
 ### `tensor.gather(dim, index)`
+
 **Command**: `torch gather`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -332,7 +391,9 @@ For each method, we track:
 ## Neural Network Operations
 
 ### `tensor.softmax(dim, dtype=None)`
+
 **Command**: `torch softmax`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [x] Helper Usage (dtype)
@@ -342,7 +403,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.log_softmax(dim, dtype=None)`
+
 **Command**: `torch log_softmax`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [x] Helper Usage (dtype)
@@ -356,7 +419,9 @@ For each method, we track:
 ## Autograd Operations
 
 ### `tensor.backward(gradient=None, retain_graph=False)`
+
 **Command**: `torch backward`
+
 - [x] Test Coverage
 - [x] Error Tests (non-scalar)
 - [ ] Helper Usage
@@ -366,7 +431,9 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.grad` (property)
+
 **Command**: `torch grad`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -376,10 +443,14 @@ For each method, we track:
 - [ ] Documentation
 
 ### `tensor.detach()`
+
 See "Unary Element-wise Operations" section above
 
 ### `tensor.requires_grad_(requires_grad=True)` (partial)
-**Note**: Currently only available as flag on tensor creation, not as standalone command
+
+**Note**: Currently only available as flag on tensor creation, not as standalone
+command
+
 - N/A - Implemented as `--requires_grad` flag on creation commands
 
 ---
@@ -387,8 +458,9 @@ See "Unary Element-wise Operations" section above
 ## Optimizer Operations (Custom)
 
 ### Custom: SGD Step
-**Command**: `torch sgd_step`
-**PyTorch Equivalent**: `optimizer.step()` for SGD
+
+**Command**: `torch sgd_step` **PyTorch Equivalent**: `optimizer.step()` for SGD
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -398,8 +470,10 @@ See "Unary Element-wise Operations" section above
 - [ ] Documentation
 
 ### Custom: Zero Gradients
-**Command**: `torch zero_grad`
-**PyTorch Equivalent**: `optimizer.zero_grad()` or `tensor.grad.zero_()`
+
+**Command**: `torch zero_grad` **PyTorch Equivalent**: `optimizer.zero_grad()`
+or `tensor.grad.zero_()`
+
 - [x] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -413,8 +487,10 @@ See "Unary Element-wise Operations" section above
 ## Utility Operations
 
 ### Custom: Convert to Nushell Value
-**Command**: `torch value`
-**PyTorch Equivalent**: `tensor.tolist()` or `tensor.numpy()`
+
+**Command**: `torch value` **PyTorch Equivalent**: `tensor.tolist()` or
+`tensor.numpy()`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [x] Helper Usage (uses `tensor_to_value`)
@@ -424,8 +500,10 @@ See "Unary Element-wise Operations" section above
 - [ ] Documentation
 
 ### Custom: Free Tensor from Registry
-**Command**: `torch free`
-**PyTorch Equivalent**: `del tensor` (garbage collection)
+
+**Command**: `torch free` **PyTorch Equivalent**: `del tensor` (garbage
+collection)
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -435,7 +513,9 @@ See "Unary Element-wise Operations" section above
 - [ ] Documentation
 
 ### `torch.manual_seed(seed)`
+
 **Command**: `torch manual_seed`
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -445,8 +525,10 @@ See "Unary Element-wise Operations" section above
 - [ ] Documentation
 
 ### Custom: List Available Devices
-**Command**: `torch devices`
-**PyTorch Equivalent**: `torch.cuda.device_count()`, etc.
+
+**Command**: `torch devices` **PyTorch Equivalent**:
+`torch.cuda.device_count()`, etc.
+
 - [ ] Test Coverage
 - [ ] Error Tests
 - [ ] Helper Usage
@@ -456,8 +538,9 @@ See "Unary Element-wise Operations" section above
 - [ ] Documentation
 
 ### Custom: Main torch Command
-**Command**: `torch`
-**Purpose**: Entry point / help command
+
+**Command**: `torch` **Purpose**: Entry point / help command
+
 - [ ] Test Coverage (N/A)
 - [ ] Error Tests (N/A)
 - [ ] Helper Usage (N/A)
@@ -471,6 +554,7 @@ See "Unary Element-wise Operations" section above
 ## Not Yet Implemented (High Priority PyTorch Methods)
 
 ### Tensor Creation
+
 - [ ] `torch.zeros()`
 - [ ] `torch.ones()`
 - [ ] `torch.zeros_like()`
@@ -482,12 +566,14 @@ See "Unary Element-wise Operations" section above
 - [ ] `torch.randperm()`
 
 ### Binary Operations
+
 - [ ] `tensor.pow()`
 - [ ] `tensor.sqrt()`
 - [ ] `tensor.abs()`
 - [ ] `tensor.clamp()`
 
 ### Reduction Operations
+
 - [ ] `tensor.sum()`
 - [ ] `tensor.min()`
 - [ ] `tensor.argmin()`
@@ -495,11 +581,13 @@ See "Unary Element-wise Operations" section above
 - [ ] `tensor.var()`
 
 ### Matrix Operations
+
 - [ ] `tensor.matmul()` / `tensor @ other`
 - [ ] `tensor.bmm()` (batch matrix multiply)
 - [ ] `tensor.transpose()`
 
 ### Shape Operations
+
 - [ ] `tensor.view()`
 - [ ] `tensor.permute()`
 - [ ] `tensor.flatten()`
@@ -507,6 +595,7 @@ See "Unary Element-wise Operations" section above
 - [ ] `tensor.chunk()`
 
 ### Neural Network
+
 - [ ] `F.relu()`
 - [ ] `F.sigmoid()`
 - [ ] `F.tanh()`
@@ -521,6 +610,7 @@ See "Unary Element-wise Operations" section above
 - [ ] `F.mse_loss()`
 
 ### Comparison Operations
+
 - [ ] `tensor.eq()`
 - [ ] `tensor.ne()`
 - [ ] `tensor.gt()`
@@ -529,11 +619,13 @@ See "Unary Element-wise Operations" section above
 - [ ] `tensor.le()`
 
 ### Logical Operations
+
 - [ ] `tensor.logical_and()`
 - [ ] `tensor.logical_or()`
 - [ ] `tensor.logical_not()`
 
 ### Type Conversions
+
 - [ ] `tensor.float()`
 - [ ] `tensor.int()`
 - [ ] `tensor.long()`
@@ -541,6 +633,7 @@ See "Unary Element-wise Operations" section above
 - [ ] `tensor.to(device)`
 
 ### Advanced Indexing
+
 - [ ] `tensor[...]` (slicing)
 - [ ] `tensor.index_select()`
 - [ ] `tensor.masked_select()`
@@ -551,6 +644,7 @@ See "Unary Element-wise Operations" section above
 ## Progress Metrics
 
 ### Implementation Progress
+
 - Tensor Creation: 5/14 (36%)
 - Binary Operations: 5/9 (56%)
 - Unary Operations: 4/8 (50%)
@@ -561,6 +655,7 @@ See "Unary Element-wise Operations" section above
 - Autograd: 3/4 (75%)
 
 ### Quality Progress (Implemented Methods Only)
+
 - Test Coverage: 26/39 (67%)
 - Error Tests: 2/39 (5%)
 - Helper Usage: 7/39 (18%)
@@ -570,7 +665,9 @@ See "Unary Element-wise Operations" section above
 - Documentation: 0/39 (0%)
 
 ### Path to 1.0
+
 To reach version 1.0, all currently implemented methods must achieve:
+
 - [x] 100% Test Coverage (currently 67%)
 - [ ] 80%+ Error Test Coverage (currently 5%)
 - [ ] 100% Helper Usage (currently 18%)
@@ -583,12 +680,19 @@ To reach version 1.0, all currently implemented methods must achieve:
 
 ## Notes
 
-1. **Helper Usage**: Should use `get_device_from_call()`, `get_kind_from_call()`, `add_grad_from_call()` where applicable, and new input validation helpers once created.
+1. **Helper Usage**: Should use `get_device_from_call()`,
+   `get_kind_from_call()`, `add_grad_from_call()` where applicable, and new
+   input validation helpers once created.
 
-2. **Dual Input**: Most commands should support both pipeline (`$t | torch cmd`) and argument (`torch cmd $t`) input patterns. Exceptions are utilities like `manual_seed` and `devices`.
+2. **Dual Input**: Most commands should support both pipeline (`$t | torch cmd`)
+   and argument (`torch cmd $t`) input patterns. Exceptions are utilities like
+   `manual_seed` and `devices`.
 
-3. **Error Tests**: Should test invalid dimensions, mismatched shapes, device conflicts, and other error conditions.
+3. **Error Tests**: Should test invalid dimensions, mismatched shapes, device
+   conflicts, and other error conditions.
 
-4. **Validation**: Commands should validate inputs before calling tch-rs to provide clear error messages.
+4. **Validation**: Commands should validate inputs before calling tch-rs to
+   provide clear error messages.
 
-5. **Documentation**: All public functions in `lib.rs` and all commands should have clear docstrings.
+5. **Documentation**: All public functions in `lib.rs` and all commands should
+   have clear docstrings.

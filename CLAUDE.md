@@ -15,15 +15,21 @@ of making GPU-accelerated tensor operations available directly in the terminal.
 
 ### Project Status & Quality Tracking
 
-**See [TODO.md](TODO.md) for complete implementation status and quality metrics.**
+**See [TODO.md](TODO.md) for complete implementation status and quality
+metrics.**
 
 The TODO.md file tracks:
-- **Implementation completeness**: Which PyTorch methods are implemented (39/200+)
-- **Quality criteria**: Test coverage, helper usage, validation, etc. for each method
-- **Progress to 1.0**: What needs to be done for each method to be production-ready
+
+- **Implementation completeness**: Which PyTorch methods are implemented
+  (39/200+)
+- **Quality criteria**: Test coverage, helper usage, validation, etc. for each
+  method
+- **Progress to 1.0**: What needs to be done for each method to be
+  production-ready
 - **Future roadmap**: PyTorch methods not yet implemented
 
 When working on this project, **always consult TODO.md** to:
+
 1. Check which methods need quality improvements
 2. See what tests are missing
 3. Understand which patterns need to be applied consistently
