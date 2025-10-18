@@ -94,3 +94,21 @@ def "Test reshape chaining" [] {
   # [8] -> [2, 4] -> [4, 2]
   assert ($result == [4 2])
 }
+
+@test
+def "Test reshape to scalar" [] {
+  let input_data = $in
+  let v = ([42] | torch tensor)
+  let result = ($v | torch reshape [] | torch shape)
+  # [1] reshaped to [] (scalar)
+  assert ($result == [])
+}
+
+@test
+def "Test reshape from scalar" [] {
+  let input_data = $in
+  let s = (42 | torch tensor)
+  let result = ($s | torch reshape [1] | torch shape)
+  # [] (scalar) reshaped to [1]
+  assert ($result == [1])
+}
