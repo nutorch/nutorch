@@ -136,6 +136,18 @@ impl PluginCommand for CommandAdd {
             })?
             .shallow_clone();
 
+        // Validate device compatibility
+        if tensor1.device() != tensor2.device() {
+            return Err(LabeledError::new("Device mismatch").with_label(
+                format!(
+                    "Tensors must be on the same device. tensor1: {:?}, tensor2: {:?}",
+                    tensor1.device(),
+                    tensor2.device()
+                ),
+                call.head,
+            ));
+        }
+
         // Handle optional alpha argument (as a tensor ID)
         let result_tensor = match call.get_flag::<String>("alpha")? {
             Some(alpha_id) => {
