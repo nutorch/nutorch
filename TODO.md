@@ -447,13 +447,13 @@ For each method, we track:
 
 **Command**: `torch softmax`
 
-- [x] Test Coverage
-- [ ] Error Tests
+- [x] Test Coverage (12 tests: 9 functionality + 3 error)
+- [x] Error Tests
 - [x] Helper Usage (dtype)
-- [x] Dual Input
+- [x] Dual Input (supports both pipeline and argument forms)
 - [x] Examples
-- [x] Validation (dimension)
-- [ ] Documentation
+- [x] Validation (dimension bounds)
+- [x] Documentation
 
 ### `tensor.log_softmax(dim, dtype=None)`
 
