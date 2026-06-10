@@ -85,7 +85,7 @@ files; do not paraphrase them. Give it:
 - the source files it should scrutinize;
 - the PyTorch behavior to compare against, for fidelity checks (e.g. the
   relevant PyTorch doc semantics, or reference Python implementations under
-  `npm/nn.nu/*.py`);
+  `v1/npm/nn.nu/*.py`);
 - `AGENTS.md` and the issue `README.md` as the workflow contract;
 - any command output whose truth matters (test counts, build logs).
 
@@ -98,8 +98,8 @@ Spawn the subagent with Claude's `Agent` tool,
 pointers in the prompt. Example:
 
 > Use the **adversarial-reviewer** subagent to review the Experiment 3 design.
-> Read `issues/0001-nutorchd-architecture/03-*.md`, `AGENTS.md`, and
-> `cargo/src/lib.rs`. Try to reject the design; return your verdict and
+> Read `issues/0002-nutorchd-architecture/03-*.md`, `AGENTS.md`, and
+> `v1/cargo/src/lib.rs`. Try to reject the design; return your verdict and
 > findings.
 
 The subagent's final message — its `VERDICT` plus findings — comes back to you
@@ -122,7 +122,7 @@ Review this Nutorch experiment DESIGN with fresh context. Do not edit anything.
 Read:
 - the experiment file: issues/<n>/NN-<slug>.md
 - the workflow contract: AGENTS.md and issues/<n>/README.md
-- the relevant source: cargo/src/<files>
+- the relevant source files (for v1 reference: v1/cargo/src/<files>)
 
 Try to reject this design. Check:
 - the issue README links this experiment with status Designed;
@@ -156,10 +156,11 @@ Try to reject this result. Check:
   if any;
 - new/changed commands honor the dual input pattern with XOR enforcement;
 - the tests actually prove the claim (not vacuous, cover the interesting cases);
-- independently verify the claimed gate results where feasible: run
-  `cargo build --release` (from cargo/), `cargo fmt -- --check`, the Nushell
-  test suite (from cargo/test: `nu -c "use node_modules/test.nu; test run-tests"`),
-  and `dprint check`; report any mismatch with the stated numbers;
+- independently verify the claimed gate results where feasible: run the
+  experiment's stated verification commands (for work in the active v2 crate,
+  once it exists: `cargo build --release`, `cargo fmt -- --check`, its test
+  suite; the archived v1 reference builds from `v1/cargo`); report any
+  mismatch with the stated numbers;
 - the experiment file has Result and Conclusion, and the README status matches;
 - the result commit has NOT been made before this review.
 

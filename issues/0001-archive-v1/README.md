@@ -87,4 +87,5 @@ checkout away.
 ## Experiments
 
 - [Experiment 1: Move v1 into `v1/` and re-point the documentation](01-move-v1-and-repoint-docs.md)
-  — **Designed**
+  — **Partial** (archive, docs, and history all land; the v1 build fails on the
+  current toolchain — proven pre-existing via a control build at `v1-final`)

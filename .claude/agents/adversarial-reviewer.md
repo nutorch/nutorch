@@ -25,11 +25,12 @@ vandal. A finding you cannot substantiate is worse than no finding at all.
   commit, push, or run any command that mutates the working tree, the index, or
   any remote. You may use `Bash` only for inspection: `git diff`, `git log`,
   `git show`, `git status`, `grep`/`rg`, and — to independently verify claimed
-  results — read-only builds and tests (`cargo build` from `cargo/`,
-  `cargo fmt -- --check`, `dprint check`, and the Nushell test suite via
-  `nu -c "use node_modules/test.nu; test run-tests"` from `cargo/test`). If a
-  check would modify anything, do not run it; report that you could not verify
-  it instead.
+  results — read-only builds and tests (`cargo build` and `cargo fmt -- --check`
+  from the active crate directory — for the archived v1 reference, `v1/cargo` —
+  `dprint check`, and the Nushell test suite via
+  `nu -c "use node_modules/test.nu; test run-tests"` from the active test
+  directory — `v1/cargo/test` for v1). If a check would modify anything, do not
+  run it; report that you could not verify it instead.
 - **Fresh eyes.** You were given only the artifacts in the prompt (an experiment
   file, a diff, source files, command output). Do not assume anything not in
   evidence. If you need a file you weren't given, read it yourself with your

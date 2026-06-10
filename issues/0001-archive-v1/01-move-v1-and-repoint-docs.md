@@ -7,6 +7,11 @@ model = "claude-fable-5"
 agent = "claude-code"
 subagent = "adversarial-reviewer"
 model = "claude-opus"
+
+[review.result]
+agent = "claude-code"
+subagent = "adversarial-reviewer"
+model = "claude-opus"
 +++
 
 # Experiment 1: Move v1 into `v1/` and re-point the documentation
@@ -176,3 +181,103 @@ layout.
 **Re-review (fresh context): APPROVED** — all four findings confirmed resolved
 (reviewer independently ran the tightened pattern against the pre-move tree and
 verified its lookbehind behavior); no new findings.
+
+## Result
+
+**Result:** Partial
+
+All verification checks pass except #5 (the v1 build), which fails for an
+environmental reason proven to pre-date the move.
+
+1. **History follows — Pass** (with a sequencing discovery, below). Pre-commit
+   form: the staged move commit contains **111 renames and 0 non-rename
+   entries** (`git diff --staged -M --name-status`), including
+   `R100 cargo/src/lib.rs → v1/cargo/src/lib.rs` and
+   `R095 README.md → v1/README.md` (the similarity delta is the archive notice).
+   Post-commit `--follow` confirmation appended below after the move commit
+   landed.
+2. **Tag — Pass.** `git tag --points-at 2233da9` → `v1-final`.
+3. **Layout — Pass.** Root: no `cargo/`, `npm/`, `TODO.md`, `raw-images/`. `v1/`
+   contains exactly `cargo/`, `npm/`, `raw-images/`, `TODO.md`, `README.md`,
+   `AGENTS.md`.
+4. **No stale references — Pass.** The zero-tolerance pattern returns zero
+   matches; all `TODO.md` references are `v1/TODO.md`-prefixed. Notably, this
+   check **failed on its first run** against the freshly written root
+   `AGENTS.md`: the new Directory Structure tree listed `cargo/`, `npm/`,
+   `raw-images/`, `TODO.md` as bare labels inside the `v1/` subtree. Fixed by
+   rewriting that tree entry with `v1/`-prefixed labels. The mechanical check
+   caught a real instance of the exact defect class it was designed for.
+5. **Build — Fail (environmental, pre-existing).** `cargo build --release` from
+   `v1/cargo` exits 101: clang rejects **libtorch's own headers** while
+   compiling the `torch-sys v0.20.0` dependency
+   (`/opt/homebrew/.../torch/include/c10/util/strong_type.h:1608: error:
+   'is_arithmetic' cannot be specialized`
+   under `-Winvalid-specialization`, `-mmacosx-version-min=26.4`). No
+   repo-relative path appears in the failing compile command except the
+   `target/` output directory. **Control:** a git worktree at the pre-move
+   `v1-final` tag fails identically — exit 101, same error signature (4
+   occurrences) — proving the failure pre-dates the move and is a
+   toolchain↔libtorch incompatibility, not a move artifact. (The
+   `v1/cargo/target/release/nu_plugin_torch` binary on disk is from an earlier
+   successful build with an older toolchain.)
+6. **Formatting — Pass.** `dprint check` clean on the full explicit file list.
+7. **Symlinks — Pass.** `CLAUDE.md → AGENTS.md`; `.claude/skills → ../skills`.
+
+**Sequencing discovery (affects the commit structure):** the result lands as
+**two commits** — first the pure move, then the new root docs. Reason: git
+rename detection only pairs an added path with a **deleted** path in the same
+commit. With the new root `README.md` present, the old path is never deleted, so
+`git diff -M` paired old-`README.md` ↔ new-root-`README.md` (`M`) and classified
+`v1/README.md` as `A` — which would have silently broken
+`git log --follow v1/README.md`. This is precisely the failure mode the design
+reviewer's Optional finding #3 anticipated; the split-commit structure is the
+fix. The workflow's "result commit" gate is read as a gate point (all result
+commits exist before the next experiment), not a count of one.
+
+**Post-commit confirmation** (run between the move commit `2aba2e9` and the docs
+commit): `git log --follow --oneline v1/cargo/src/lib.rs | tail -1` →
+`1566d7d make rust folder. move nu code to nu folder.` (the file's original
+commit), and `git log --follow --oneline v1/README.md | wc -l` → `35` — both
+trace through the move. Check 1 confirmed in full.
+
+## Conclusion
+
+The archive is done: v1 lives frozen in `v1/` with its history intact and its
+own architecture record; the root documentation now describes v2 (nutorchd) and
+the carried-forward principles; the workflow tooling points at the right paths.
+The original layout is one checkout away at `v1-final`.
+
+What we learned:
+
+1. **v1 does not build on the current toolchain** (Xcode 26.4 clang rejects
+   libtorch 2.x headers). This is a pre-existing environmental fact, recorded
+   here rather than fixed — `v1/` is frozen, and a workaround (e.g.
+   `CXXFLAGS=-Wno-error=invalid-specialization` or an older toolchain) can be
+   applied by whoever needs a v1 reference build. **Consequence for v2:**
+   nutorchd will build against the same torch-sys/libtorch stack, so the v2
+   architecture issue must verify toolchain↔libtorch compatibility in its very
+   first build experiment, before any design depends on it.
+2. **Mechanical verification gates earn their keep** — the zero-tolerance
+   reference check caught a defect in a file written minutes earlier, and the
+   design review's history-follow concern materialized exactly as predicted.
+
+The next step is **issue 0002: the nutorchd architecture** — wire protocol,
+daemon lifecycle, client surface, and a first build experiment that proves the
+tch-rs stack compiles on this toolchain.
+
+## Result Review
+
+**Reviewer:** `adversarial-reviewer` subagent (fresh context, read-only),
+reviewing the pre-commit state (staged move + working-tree docs), per the
+workflow's review-before-result-commit gate. **Verdict: APPROVED — no Required,
+Optional, or Nit findings.** The reviewer independently reproduced every
+verification claim: 111/111 staged entries are pure renames (confirmed
+`R100 cargo/src/lib.rs` and `R095 README.md` directly); the tag, layout,
+zero-tolerance reference scan, dprint, and symlink checks all reproduce; both
+build logs end in the identical libtorch-header error (4 occurrences each), with
+the control log compiling from the pre-move `v1-final` worktree — confirming the
+Partial classification is honest. It also concretely confirmed the two-commit
+rationale (the index simultaneously holds `D README.md` from the rename and
+`?? README.md` for the new root file — a combined commit would have re-paired
+them and broken `--follow`) and endorsed reading the result-commit gate as a
+gate point rather than a count of one.
