@@ -6,4 +6,7 @@ license = "Apache-2.0"
 description = "Nutorch v2 daemon: a tensor database for the shell (PoC)"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tch = "0.24.0"
+uuid = { version = "1", features = ["v4"] }

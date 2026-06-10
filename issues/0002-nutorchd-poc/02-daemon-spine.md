@@ -2,6 +2,16 @@
 [implementer]
 agent = "claude-code"
 model = "claude-fable-5"
+
+[review.design]
+agent = "claude-code"
+subagent = "adversarial-reviewer"
+model = "claude-opus"
+
+[review.result]
+agent = "claude-code"
+subagent = "adversarial-reviewer"
+model = "claude-opus"
 +++
 
 # Experiment 2: The daemon spine — nutorchd + `torch` client, `tensor`→handle→`value`
@@ -136,3 +146,96 @@ folded in: (1) the unconditional stale-socket removal is now recorded as a known
 PoC simplification the lifecycle issue must not silently inherit; (2) error-path
 checks gained explicit post-error liveness probes; (3) verification gained a
 teardown step and states checks 2–6 share one daemon.
+
+## Result
+
+**Result:** Pass
+
+The spine stands. All behavioral checks pass with direct binary execution (plain
+shell, no cargo environment):
+
+```
+handle: 3c7bf6d1-eaa5-4b99-a54e-0b6f36a8ee98     # client process #1
+[1.0,2.0,3.0]                                    # read by client process #2
+[1.0,2.0,3.0]                                    # stdin piping
+[1.0,2.0,3.0]                                    # created on MPS, read back
+torch: unknown handle: not-a-handle  (exit 1) → liveness probe: [9.0]
+torch: ragged or mismatched nested list: ...  (exit 1) → liveness probe: [9.0]
+[[1.0,2.0],[3.0,4.0]]                            # 2-D round trip
+```
+
+The daemon startup log reports `MPS available: true`. Hygiene: `cargo build` 0
+warnings; `cargo test` green (9 conversion/registry unit tests + the 3
+Experiment-1 smoke tests); `cargo fmt --all -- --check` clean; `dprint check`
+clean; `git status --porcelain v1/` empty.
+
+**Discovery (the load-bearing one): torch-sys 0.24 bakes no rpath when
+`LIBTORCH` is set.** The first verification run failed wholesale — the daemon
+died at exec with
+`dyld: Library not loaded: @rpath/libtorch_cpu.dylib …
+no LC_RPATH's found`.
+Experiment 1 never saw this because `cargo run` / `cargo test` inherit the
+`.cargo/config.toml` `[env]` DYLD path; **direct execution from a shell — the
+PoC's whole point — exercised dylib resolution for the first time** (and
+corrects Experiment 1's recorded belief that torch-sys bakes an rpath; it does
+not in this configuration). Fix, added to `.cargo/config.toml` beyond the
+design's change list: `[build] rustflags` baking two repo-relative rpaths
+(`@loader_path/../../.libtorch/lib` for `target/<profile>/<bin>`, `…/../../../`
+for test binaries under `deps/`). Verified via `otool -l`: both `LC_RPATH`
+entries present. PoC limitation, recorded: binaries resolve dylibs only while
+inside the repo; the install story belongs to a later issue.
+
+**Two smaller deviations, recorded:**
+
+1. **tch error hygiene**: raw tch errors stringify with a full C++ backtrace,
+   which the first ragged-array check dumped to the user. Added
+   `convert::tch_error` (first line only) on every fallible tch call — the
+   carried-forward good-error-messages principle applied to the daemon.
+2. **Teardown expectation corrected**: the design said "kill the daemon and
+   confirm the socket is gone", but a Unix socket file outlives its process —
+   `kill` leaves it behind. The teardown now kills the daemon and removes the
+   socket file explicitly; daemon-side cleanup on signal is deferred to the
+   lifecycle issue (alongside the already-recorded unconditional stale-socket
+   removal).
+
+Also fixed during implementation: two `Registry` methods (`len`/`is_empty`)
+written speculatively tripped the no-warnings gate as dead code and were removed
+— the gate works.
+
+## Conclusion
+
+The v2 architecture is no longer hypothetical: a tensor uploaded by one shell
+process lives in the daemon and is read back by another process, on CPU and MPS,
+over a `nc`-debuggable NDJSON socket, with errors that return instead of killing
+the daemon (fallible `f_*` tch calls — a deliberate departure from v1's
+panicking plugin idiom, which a daemon cannot afford).
+
+For the next experiment: the four compute ops (`full`, `add`, `mm`, `mean`) are
+dispatcher entries plus argument plumbing on this spine — `full` takes
+shape+fill, the binary ops take two handles (client: positional XOR stdin),
+`mean` takes one. Port validation patterns from `v1/cargo/src/command_*.rs`,
+keep every tch call fallible, and finish with the issue's two PoC pipelines
+end-to-end (exact expected values `[5.0,7.0,9.0]` and `1000.0`), plus the
+cross-device mismatch error case (`cpu` tensor ⊕ `mps` tensor must error
+cleanly, not crash).
+
+## Result Review
+
+**Reviewer:** `adversarial-reviewer` subagent (fresh context, read-only),
+reviewing the pre-commit working tree. **First pass: CHANGES REQUIRED** — one
+Required finding: the AGENTS.md Directory Structure update added the v2 tree but
+left the trailing "the v2 source tree does not exist yet" paragraph in place,
+contradicting the tree above it and failing change-list item 4's promised
+discharge. **Fixed** (paragraph rewritten to describe the tree as the issue-0002
+PoC scaffolding). **Re-review (fresh context): APPROVED** — finding confirmed
+resolved, no new findings.
+
+Beyond the finding, the first-pass reviewer independently reproduced everything:
+all hygiene gates green (12 tests, 0 warnings, fmt/dprint clean, v1 untouched);
+started the daemon **directly with the dylib env vars stripped**, proving the
+rpath fix (both `LC_RPATH` entries confirmed via `otool`); ran the full
+behavioral suite including the one-line ragged error and both liveness probes;
+verified all four recorded deviations against the code and confirmed the
+"corrects Experiment 1's rpath belief" claim is fair; confirmed conversion
+fidelity against `v1/cargo/src/lib.rs` with no real divergence; and confirmed
+the client crate has no tch dependency.

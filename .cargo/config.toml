@@ -14,3 +14,18 @@
 LIBTORCH = { value = ".libtorch", relative = true, force = true }
 DYLD_LIBRARY_PATH = { value = ".libtorch/lib", relative = true, force = true }
 LD_LIBRARY_PATH = { value = ".libtorch/lib", relative = true, force = true }
+
+# torch-sys 0.24 does not bake an rpath when LIBTORCH is set, so binaries run
+# directly from a shell (the PoC's whole point) cannot find the torch dylibs —
+# the [env] above only covers processes spawned BY cargo. Bake repo-relative
+# rpaths: target/{debug,release}/<bin> → ../../.libtorch/lib, and
+# target/<profile>/deps/<test> → ../../../.libtorch/lib. PoC limitation:
+# binaries resolve dylibs only while inside the repo; an install story is a
+# later issue. (issues/0002-nutorchd-poc/02-daemon-spine.md)
+[build]
+rustflags = [
+  "-C",
+  "link-arg=-Wl,-rpath,@loader_path/../../.libtorch/lib",
+  "-C",
+  "link-arg=-Wl,-rpath,@loader_path/../../../.libtorch/lib",
+]

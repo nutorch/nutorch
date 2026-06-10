@@ -90,6 +90,19 @@ nutorch/
 ├── LICENSE                      # Apache 2.0
 ├── dprint.json                  # Formatter config (md/toml/json)
 │
+├── Cargo.toml                   # ⭐ v2 Rust workspace (members below)
+├── nutorchd/                    # The daemon: registry, socket, dispatch
+│   ├── src/main.rs              #   socket loop + request dispatch
+│   ├── src/registry.rs          #   handle → tch::Tensor map
+│   ├── src/convert.rs           #   JSON ↔ tensor (ported from v1)
+│   ├── src/protocol.rs          #   NDJSON wire types (PoC, throwaway)
+│   └── tests/mps_smoke.rs       #   toolchain/MPS proof (issue 0002 exp 1)
+├── torch-cli/                   # Thin client; binary is named `torch`
+│   └── src/main.rs              #   args/stdin → one request → stdout
+├── .cargo/config.toml           # Force-pins LIBTORCH to .libtorch (venv)
+│                                #   (.venv-torch + .libtorch symlink are
+│                                #    gitignored; see Cargo.toml header)
+│
 ├── issues/                      # ⭐ Issues and Experiments (the workflow)
 │   ├── README.md                # Generated index (scripts/build-issues-index.sh)
 │   └── {NNNN}-{slug}/           # One folder per issue
@@ -122,9 +135,9 @@ nutorch/
 └── logs/                        # Review logs and scratch output (gitignored)
 ```
 
-The v2 source tree (daemon crate, client crate) does not exist yet; its layout
-is decided by the nutorchd architecture issue and will be recorded here when the
-scaffolding lands.
+The v2 source tree above is the PoC scaffolding from issue 0002; its layout
+evolves with the issues that build on it (protocol design, lifecycle, the
+Nushell client), and this section is updated as that happens.
 
 ## Issues and Experiments
 

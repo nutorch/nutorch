@@ -10,5 +10,5 @@
 # See issues/0002-nutorchd-poc/01-toolchain-proof.md.
 
 [workspace]
-members = ["nutorchd"]
+members = ["nutorchd", "torch-cli"]
 resolver = "2"

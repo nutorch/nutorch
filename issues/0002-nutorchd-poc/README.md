@@ -128,4 +128,5 @@ random seeds.
   exact-value matmul green; libtorch pinned via repo-local venv +
   `.cargo/config.toml`, since no arm64 libtorch zip exists)
 - [Experiment 2: The daemon spine — nutorchd + `torch` client, `tensor`→handle→`value`](02-daemon-spine.md)
-  — **Designed**
+  — **Pass** (cross-process handle persistence proven on CPU and MPS; found and
+  fixed the no-rpath-from-torch-sys gap that broke direct shell execution)
