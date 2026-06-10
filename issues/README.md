@@ -2,8 +2,9 @@
 
 ## Open
 
-| # | Title | Opened |
-| - | ----- | ------ |
+| #                               | Title                                          | Opened     |
+| ------------------------------- | ---------------------------------------------- | ---------- |
+| [0003](0003-mps-only/README.md) | GPU-only — drop the device option, require MPS | 2026-06-10 |
 
 ## Closed
 
