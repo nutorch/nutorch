@@ -100,4 +100,5 @@ surprises — is unaffected.
 ## Experiments
 
 - [Experiment 1: Remove the device option; require MPS](01-remove-device-option.md)
-  — **Designed**
+  — **Pass** (device gone from client, wire, and daemon; MPS required at
+  startup; device-less pipelines exact; 22 tests green)

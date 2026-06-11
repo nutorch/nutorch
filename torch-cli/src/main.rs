@@ -15,7 +15,6 @@ use std::process::ExitCode;
 struct Args {
     op: String,
     positional: Vec<String>,
-    device: Option<String>,
     dtype: Option<String>,
     socket: Option<String>,
 }
@@ -24,21 +23,25 @@ fn parse_args() -> Result<Args, String> {
     let mut raw = std::env::args().skip(1);
     let op = raw.next().ok_or("usage: torch <op> [args...]")?;
     let mut positional = Vec::new();
-    let mut device = None;
     let mut dtype = None;
     let mut socket = None;
     while let Some(arg) = raw.next() {
         match arg.as_str() {
-            "--device" => device = Some(raw.next().ok_or("--device needs a value")?),
             "--dtype" => dtype = Some(raw.next().ok_or("--dtype needs a value")?),
             "--socket" => socket = Some(raw.next().ok_or("--socket needs a value")?),
+            "--device" => {
+                return Err(
+                    "the device option was removed; tensors always live on the GPU (mps)"
+                        .to_string(),
+                )
+            }
+            flag if flag.starts_with("--") => return Err(format!("unknown flag: {flag}")),
             _ => positional.push(arg),
         }
     }
     Ok(Args {
         op,
         positional,
-        device,
         dtype,
         socket,
     })
@@ -95,7 +98,6 @@ fn build_request(args: &Args) -> Result<serde_json::Value, String> {
             Ok(serde_json::json!({
                 "op": "tensor",
                 "data": data,
-                "device": args.device,
                 "dtype": args.dtype,
             }))
         }
@@ -116,7 +118,6 @@ fn build_request(args: &Args) -> Result<serde_json::Value, String> {
                 "op": "full",
                 "shape": shape,
                 "value": value,
-                "device": args.device,
                 "dtype": args.dtype,
             }))
         }

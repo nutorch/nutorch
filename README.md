@@ -10,19 +10,25 @@ through ordinary pipelines — in bash, zsh, fish, or any other shell.
 [Nushell](https://www.nushell.sh/) remains the premium client, with structured
 data and native serialization.
 
+**GPU-only, by design.** Every tensor lives on the GPU — that is the point of
+the library. There is no device option. **Requires an Apple-silicon Mac** (the
+GPU is MPS); the daemon refuses to start without it. Mac-only for now.
+
 ```bash
-# The shape of things to come (design phase — not yet implemented):
-a=$(torch tensor '[1,2,3]' --device mps)
-b=$(torch tensor '[4,5,6]' --device mps)
+# Working today (PoC):
+a=$(torch tensor '[1,2,3]')
+b=$(torch tensor '[4,5,6]')
 torch add $a $b | torch value
-# → [5.0, 7.0, 9.0]
+# → [5.0,7.0,9.0]   (computed on the GPU)
 ```
 
 ## Status
 
-**v2 is in the design phase.** The architecture is being worked out in the open
-— see the issue tracker at [issues/README.md](issues/README.md) and the agent
-contract / vision in [AGENTS.md](AGENTS.md).
+**Proof of concept working** (issue 0002): daemon, thin client, six ops
+(`tensor`, `full`, `add`, `mm`, `mean`, `value`), exact GPU results from plain
+bash. The architecture is being worked out in the open — see the issue tracker
+at [issues/README.md](issues/README.md) and the agent contract / vision in
+[AGENTS.md](AGENTS.md).
 
 ## v1: the proof of concept
 

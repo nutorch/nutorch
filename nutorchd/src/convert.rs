@@ -15,22 +15,6 @@ pub fn tch_error(e: tch::TchError) -> String {
         .to_string()
 }
 
-/// v1 fidelity: default device is CPU; "cuda", "cuda:N", and "mps" accepted.
-pub fn parse_device(device: Option<&str>) -> Result<Device, String> {
-    match device {
-        None | Some("cpu") => Ok(Device::Cpu),
-        Some("cuda") => Ok(Device::Cuda(0)),
-        Some("mps") => Ok(Device::Mps),
-        Some(s) if s.starts_with("cuda:") => s[5..]
-            .parse::<usize>()
-            .map(Device::Cuda)
-            .map_err(|_| format!("invalid CUDA device: {s}")),
-        Some(s) => Err(format!(
-            "invalid device: {s} (expected cpu, cuda, cuda:N, or mps)"
-        )),
-    }
-}
-
 /// v1 fidelity: default dtype is float32 (v1/cargo/src/lib.rs:197), not
 /// Python torch.tensor's int64 inference.
 pub fn parse_kind(dtype: Option<&str>) -> Result<Kind, String> {
@@ -200,8 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_device_and_dtype_are_errors() {
-        assert!(parse_device(Some("gpu")).is_err());
+    fn invalid_dtype_is_an_error() {
         assert!(parse_kind(Some("float16")).is_err());
     }
 }

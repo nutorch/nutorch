@@ -40,13 +40,17 @@ bash / zsh / fish / nushell / python / anything
 nutorchd            ← owns the tensor registry, LibTorch context,
     ↓ tch-rs           GPU memory, and autograd graphs
 LibTorch (C++)
-    ↓ native CUDA/MPS/CPU
-Hardware (GPU/CPU)
+    ↓ Metal (MPS)
+Apple-silicon GPU
 ```
 
-- **nutorchd** is a standalone daemon (one copy, or a configurable number — e.g.
-  one per GPU device) that maintains the tensor database. Tensors are referenced
-  by string identifiers.
+- **nutorchd** is a standalone daemon (one copy, or a configurable number) that
+  maintains the tensor database. Tensors are referenced by string identifiers.
+- **GPU-only, Mac-only for now** (issue 0003): every tensor lives on the GPU —
+  on Apple silicon, MPS — and there is **no device option anywhere** in the API.
+  The daemon requires MPS and refuses to start without it. Future platform
+  expansion (e.g. CUDA on Linux) is a daemon-level "the GPU" decision per
+  platform, never a per-tensor option.
 - A **thin CLI client** (`torch`) sends one operation per invocation over a Unix
   socket and prints the resulting handle to stdout. Because handles are plain
   text on stdout/stdin, real POSIX pipelines compose — the dual input pattern
@@ -74,8 +78,9 @@ implementation that v2 ports from. These v1 principles remain binding for v2:
    tool feels native to both PyTorch users and shell users.
 3. **PyTorch API fidelity.** Command names, argument order, defaults, and
    semantics match PyTorch wherever possible.
-4. **Explicit over implicit.** Manual device placement, no auto-casting, no
-   automatic broadcasting surprises.
+4. **Explicit over implicit.** No auto-casting, no automatic broadcasting
+   surprises. (v1's "manual device placement" clause was retired by issue 0003:
+   there is exactly one device — the GPU — so there is nothing to place.)
 5. **Validate in Rust, not C++.** Pre-validate shapes, dims, and dtypes before
    tch-rs calls — LibTorch errors are opaque and crash-prone; Rust-side
    validation gives good error messages.

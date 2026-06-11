@@ -8,13 +8,11 @@ use serde::{Deserialize, Serialize};
 pub enum Request {
     Tensor {
         data: serde_json::Value,
-        device: Option<String>,
         dtype: Option<String>,
     },
     Full {
         shape: Vec<i64>,
         value: serde_json::Value,
-        device: Option<String>,
         dtype: Option<String>,
     },
     Add {

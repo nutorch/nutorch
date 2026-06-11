@@ -38,9 +38,36 @@ fn socket_path_from_args() -> PathBuf {
     default_socket_path()
 }
 
-/// Look up two operand handles and apply v1's Rust-side device-equality
-/// check (ported from v1/cargo/src/command_add.rs:140-148): a clean error
-/// naming both devices, before any tch call. No auto-transfer.
+/// nutorchd is GPU-only (issue 0003): Mac-only for now, so the GPU is MPS,
+/// and the daemon refuses to start without it.
+fn require_mps() -> Result<(), String> {
+    if tch::utils::has_mps() {
+        Ok(())
+    } else {
+        Err("nutorchd requires an Apple-silicon Mac with MPS (GPU-only by design)".to_string())
+    }
+}
+
+/// Reject a request that still carries the removed `device` option (issue
+/// 0003) with an explanatory error, before deserializing into `Request`.
+/// (serde's deny_unknown_fields does not work on internally tagged enums, so
+/// this special case is checked explicitly; other unknown fields stay
+/// ignored.)
+fn parse_request(line: &str) -> Result<Request, String> {
+    let raw: serde_json::Value =
+        serde_json::from_str(line).map_err(|e| format!("bad request: {e}"))?;
+    if raw.get("device").is_some() {
+        return Err(
+            "the device option was removed (issue 0003): tensors always live on the GPU (mps)"
+                .to_string(),
+        );
+    }
+    serde_json::from_value(raw).map_err(|e| format!("bad request: {e}"))
+}
+
+/// Look up two operand handles. Every registry tensor lives on MPS (issue
+/// 0003), so device agreement is an invariant, not a user error — asserted
+/// in debug builds.
 fn binary_operands<'r>(
     registry: &'r Registry,
     a: &str,
@@ -52,32 +79,22 @@ fn binary_operands<'r>(
     let tb = registry
         .get(b)
         .ok_or_else(|| format!("unknown handle: {b}"))?;
-    if ta.device() != tb.device() {
-        return Err(format!(
-            "device mismatch: tensors must be on the same device, got {:?} and {:?}",
-            ta.device(),
-            tb.device()
-        ));
-    }
+    debug_assert_eq!(
+        ta.device(),
+        tb.device(),
+        "registry invariant violated: all tensors live on MPS"
+    );
     Ok((ta, tb))
 }
 
 fn handle_request(registry: &mut Registry, request: Request) -> Response {
     match request {
-        Request::Tensor {
-            data,
-            device,
-            dtype,
-        } => {
-            let device = match convert::parse_device(device.as_deref()) {
-                Ok(d) => d,
-                Err(e) => return Response::error(e),
-            };
+        Request::Tensor { data, dtype } => {
             let kind = match convert::parse_kind(dtype.as_deref()) {
                 Ok(k) => k,
                 Err(e) => return Response::error(e),
             };
-            match convert::json_to_tensor(&data, kind, device) {
+            match convert::json_to_tensor(&data, kind, Device::Mps) {
                 Ok(tensor) => Response::handle(registry.insert(tensor)),
                 Err(e) => Response::error(e),
             }
@@ -85,7 +102,6 @@ fn handle_request(registry: &mut Registry, request: Request) -> Response {
         Request::Full {
             shape,
             value,
-            device,
             dtype,
         } => {
             // Rust-side shape validation, ported from v1 command_full.rs:
@@ -98,18 +114,14 @@ fn handle_request(registry: &mut Registry, request: Request) -> Response {
                     "invalid shape: every dimension must be >= 1, got {bad}"
                 ));
             }
-            let device = match convert::parse_device(device.as_deref()) {
-                Ok(d) => d,
-                Err(e) => return Response::error(e),
-            };
             let kind = match convert::parse_kind(dtype.as_deref()) {
                 Ok(k) => k,
                 Err(e) => return Response::error(e),
             };
             let result = if let Some(i) = value.as_i64() {
-                Tensor::f_full(&shape, i, (kind, device))
+                Tensor::f_full(&shape, i, (kind, Device::Mps))
             } else if let Some(f) = value.as_f64() {
-                Tensor::f_full(&shape, f, (kind, device))
+                Tensor::f_full(&shape, f, (kind, Device::Mps))
             } else {
                 return Response::error(format!("fill value must be a number, got {value}"));
             };
@@ -185,9 +197,9 @@ fn serve_connection(registry: &mut Registry, stream: UnixStream) -> std::io::Res
         if line.trim().is_empty() {
             continue;
         }
-        let response = match serde_json::from_str::<Request>(&line) {
+        let response = match parse_request(&line) {
             Ok(request) => handle_request(registry, request),
-            Err(e) => Response::error(format!("bad request: {e}")),
+            Err(e) => Response::error(e),
         };
         let mut payload = serde_json::to_string(&response).expect("response serializes");
         payload.push('\n');
@@ -338,6 +350,35 @@ mod tests {
     }
 
     #[test]
+    fn require_mps_holds_on_this_machine() {
+        assert!(require_mps().is_ok());
+    }
+
+    #[test]
+    fn created_tensors_live_on_mps() {
+        let mut registry = Registry::new();
+        let h = expect_handle(handle_request(
+            &mut registry,
+            request(json!({"op":"tensor","data":[1,2,3]})),
+        ));
+        assert_eq!(registry.get(&h).unwrap().device(), Device::Mps);
+        let f = expect_handle(handle_request(
+            &mut registry,
+            request(json!({"op":"full","shape":[2,2],"value":1})),
+        ));
+        assert_eq!(registry.get(&f).unwrap().device(), Device::Mps);
+    }
+
+    #[test]
+    fn device_field_is_rejected_with_removal_message() {
+        let error = parse_request(r#"{"op":"tensor","data":[1],"device":"cpu"}"#)
+            .expect_err("device field must be rejected");
+        assert!(error.contains("device option was removed"), "{error}");
+        // The same line without the field parses fine.
+        assert!(parse_request(r#"{"op":"tensor","data":[1]}"#).is_ok());
+    }
+
+    #[test]
     fn full_rejects_bad_shapes() {
         let mut registry = Registry::new();
         let empty = expect_error(handle_request(
@@ -354,6 +395,11 @@ mod tests {
 }
 
 fn main() -> std::io::Result<()> {
+    if let Err(message) = require_mps() {
+        eprintln!("{message}");
+        std::process::exit(1);
+    }
+
     let socket_path = socket_path_from_args();
     // PoC: unconditional stale-socket removal (see module doc).
     let _ = std::fs::remove_file(&socket_path);
@@ -361,7 +407,7 @@ fn main() -> std::io::Result<()> {
 
     println!("nutorchd (PoC, issue 0002)");
     println!("socket: {}", socket_path.display());
-    println!("MPS available: {}", tch::utils::has_mps());
+    println!("device: mps");
 
     let mut registry = Registry::new();
     for stream in listener.incoming() {
