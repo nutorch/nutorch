@@ -2,8 +2,9 @@
 
 ## Open
 
-| # | Title | Opened |
-| - | ----- | ------ |
+| #                                                     | Title                                                       | Opened     |
+| ----------------------------------------------------- | ----------------------------------------------------------- | ---------- |
+| [0006](0006-tensor-lifecycle-and-roundtrip/README.md) | Tensor lifecycle (free + list) and lossless JSON round-trip | 2026-06-11 |
 
 ## Closed
 
