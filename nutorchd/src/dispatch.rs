@@ -33,8 +33,8 @@ pub fn parse_request(line: &str) -> Result<Request, Response> {
         .to_string();
     match name.as_str() {
         "tensor" | "value" | "free" | "tensors" | "nn" | "forward" | "nn_parameters" | "step"
-        | "nn_zero_grad" | "nn_set_lr" | "nn_mode" | "nn_info" | "status" | "set_ttl"
-        | "shutdown" => {
+        | "nn_zero_grad" | "nn_set_lr" | "nn_mode" | "nn_save" | "nn_load" | "nn_info"
+        | "status" | "set_ttl" | "shutdown" => {
             let bespoke: Bespoke = serde_json::from_value(raw)
                 .map_err(|e| Response::error("bad_request", format!("bad request: {e}")))?;
             Ok(Request::Bespoke(bespoke))
@@ -341,6 +341,62 @@ pub fn handle_request(
                         (Response::value(serde_json::json!({ "lr": lr })), false)
                     }
                     Err(lookup) => (Response::error(lookup.code(), lookup.message()), false),
+                }
+            }
+            Bespoke::NnSave { module, path } => {
+                lifecycle.lock().unwrap().touch();
+                registry.touch(&module);
+                let result = registry
+                    .get_module(&module)
+                    .map_err(|l| (l.code(), l.message()))
+                    .and_then(|m| {
+                        // Save from CPU (safetensors is host-memory).
+                        let entries: Result<Vec<(String, Tensor)>, _> = m
+                            .named_state()
+                            .into_iter()
+                            .map(|(name, t)| {
+                                t.f_detach()
+                                    .and_then(|d| d.f_to_device(Device::Cpu))
+                                    .map(|cpu| (name, cpu))
+                            })
+                            .collect();
+                        let entries =
+                            entries.map_err(|e| ("torch_error", convert::tch_error(e)))?;
+                        Tensor::write_safetensors(&entries, &path).map_err(|e| {
+                            // Unwritable path = caller mistake.
+                            ("bad_argument", format!("save: cannot write {path}: {e}"))
+                        })
+                    });
+                match result {
+                    Ok(()) => (Response::value(serde_json::json!({ "saved": path })), false),
+                    Err((code, message)) => (Response::error(code, message), false),
+                }
+            }
+            Bespoke::NnLoad { module, path } => {
+                lifecycle.lock().unwrap().touch();
+                registry.touch(&module);
+                if !std::path::Path::new(&path).exists() {
+                    return (
+                        Response::error("bad_argument", format!("load: no such file: {path}")),
+                        false,
+                    );
+                }
+                let result = Tensor::read_safetensors(&path)
+                    .map_err(|e| ("torch_error", convert::tch_error(e)))
+                    .and_then(|entries| {
+                        registry
+                            .get_module(&module)
+                            .map_err(|l| (l.code(), l.message()))
+                            .and_then(|m| {
+                                m.load_state(&entries).map_err(|msg| ("bad_argument", msg))
+                            })
+                    });
+                match result {
+                    Ok(()) => (
+                        Response::value(serde_json::json!({ "loaded": path })),
+                        false,
+                    ),
+                    Err((code, message)) => (Response::error(code, message), false),
                 }
             }
             Bespoke::NnMode { module, train } => {
@@ -741,11 +797,14 @@ fn build_module(
                 .map_err(|e| tch("nn", e))?;
             let running_var = Tensor::f_ones([features], (Kind::Float, Device::Mps))
                 .map_err(|e| tch("nn", e))?;
+            let num_batches_tracked = Tensor::f_zeros([], (Kind::Int64, Device::Mps))
+                .map_err(|e| tch("nn", e))?;
             Ok(NnModule::BatchNorm {
                 weight,
                 bias,
                 running_mean,
                 running_var,
+                num_batches_tracked,
                 eps,
                 momentum,
                 training: true,
@@ -3632,5 +3691,213 @@ mod module_sweep_semantics {
             .unwrap();
         let direct = convert::tensor_to_json(&direct.f_to_device(Device::Cpu).unwrap()).unwrap();
         assert_eq!(via_module, direct);
+    }
+}
+
+#[cfg(test)]
+mod save_load_semantics {
+    use super::*;
+    use crate::lifecycle::Lifecycle;
+    use serde_json::json;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    fn bespoke(registry: &mut Registry, request: serde_json::Value) -> Response {
+        let parsed = parse_request(&request.to_string()).expect("parses");
+        let lifecycle = Mutex::new(Lifecycle::new(None));
+        let socket = PathBuf::from("/tmp/test.sock");
+        handle_request(registry, &lifecycle, &socket, parsed).0
+    }
+
+    fn handle_of(response: Response) -> String {
+        match response {
+            Response::Handle { handle, .. } => handle,
+            other => panic!("expected handle, got {other:?}"),
+        }
+    }
+
+    fn forward_json(registry: &mut Registry, m: &str, x: &str) -> serde_json::Value {
+        let y = handle_of(bespoke(
+            registry,
+            json!({"op":"forward","module": m, "tensor": x}),
+        ));
+        let cpu = registry
+            .get_tensor(&y)
+            .unwrap()
+            .f_detach()
+            .unwrap()
+            .f_to_device(Device::Cpu)
+            .unwrap();
+        convert::tensor_to_json(&cpu).unwrap()
+    }
+
+    fn model(registry: &mut Registry) -> String {
+        let l = handle_of(bespoke(
+            registry,
+            json!({"op":"nn","kind":"linear","args":{"in_features":2,"out_features":3}}),
+        ));
+        let bn = handle_of(bespoke(
+            registry,
+            json!({"op":"nn","kind":"batch_norm","args":{"num_features":3}}),
+        ));
+        handle_of(bespoke(
+            registry,
+            json!({"op":"nn","kind":"sequential","args":{"children":[l, bn]}}),
+        ))
+    }
+
+    #[test]
+    fn round_trip_restores_forward_and_names_match_pytorch() {
+        let dir = std::env::temp_dir().join(format!("nutorch-sl-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("model.safetensors");
+        let path_str = path.to_string_lossy().into_owned();
+
+        let mut registry = Registry::new();
+        tch::manual_seed(11);
+        let original = model(&mut registry);
+        // Eval mode so batch_norm uses (deterministic) running stats.
+        bespoke(
+            &mut registry,
+            json!({"op":"nn_mode","module": original, "train": false}),
+        );
+        let x = registry.insert_tensor(
+            convert::json_to_tensor(&json!([[1.0, 2.0]]), Kind::Float, Device::Mps).unwrap(),
+        );
+        let expected = forward_json(&mut registry, &original, &x);
+
+        // Names match PyTorch's state_dict scheme.
+        let module = registry.get_module(&original).unwrap();
+        let names: Vec<String> = module
+            .named_state()
+            .iter()
+            .map(|(n, _)| n.clone())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                "0.weight",
+                "0.bias",
+                "1.weight",
+                "1.bias",
+                "1.running_mean",
+                "1.running_var",
+                "1.num_batches_tracked"
+            ]
+        );
+
+        assert!(matches!(
+            bespoke(
+                &mut registry,
+                json!({"op":"nn_save","module": original, "path": path_str})
+            ),
+            Response::Value { .. }
+        ));
+
+        // Fresh same-arch model, different init.
+        tch::manual_seed(99);
+        let fresh = model(&mut registry);
+        bespoke(
+            &mut registry,
+            json!({"op":"nn_mode","module": fresh, "train": false}),
+        );
+        let before = forward_json(&mut registry, &fresh, &x);
+        assert_ne!(before, expected, "different init should differ");
+
+        assert!(matches!(
+            bespoke(
+                &mut registry,
+                json!({"op":"nn_load","module": fresh, "path": path_str})
+            ),
+            Response::Value { .. }
+        ));
+        let after = forward_json(&mut registry, &fresh, &x);
+        assert_eq!(after, expected, "loaded model must reproduce the original");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn load_errors_leave_target_unchanged_and_preserve_aliasing() {
+        let dir = std::env::temp_dir().join(format!("nutorch-sl2-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("linear.safetensors");
+        let path_str = path.to_string_lossy().into_owned();
+
+        let mut registry = Registry::new();
+        let small = handle_of(bespoke(
+            &mut registry,
+            json!({"op":"nn","kind":"linear","args":{"in_features":2,"out_features":3}}),
+        ));
+        bespoke(
+            &mut registry,
+            json!({"op":"nn_save","module": small, "path": path_str}),
+        );
+
+        // Wrong architecture: missing keys named, target unchanged.
+        let other = model(&mut registry); // sequential, different keys
+        let x = registry.insert_tensor(
+            convert::json_to_tensor(&json!([[1.0, 2.0]]), Kind::Float, Device::Mps).unwrap(),
+        );
+        bespoke(
+            &mut registry,
+            json!({"op":"nn_mode","module": other, "train": false}),
+        );
+        let before = forward_json(&mut registry, &other, &x);
+        match bespoke(
+            &mut registry,
+            json!({"op":"nn_load","module": other, "path": path_str}),
+        ) {
+            Response::Error { code, error, .. } => {
+                assert_eq!(code, "bad_argument");
+                assert!(error.contains("key"), "{error}");
+            }
+            other => panic!("expected error, got {other:?}"),
+        }
+        let after = forward_json(&mut registry, &other, &x);
+        assert_eq!(before, after, "failed load must not mutate the target");
+
+        // Missing file is a clean bad_argument.
+        match bespoke(
+            &mut registry,
+            json!({"op":"nn_load","module": small, "path": "/nonexistent/x.safetensors"}),
+        ) {
+            Response::Error { code, .. } => assert_eq!(code, "bad_argument"),
+            other => panic!("expected error, got {other:?}"),
+        }
+
+        // Optimizer aliasing survives a (successful) load: optimizer built
+        // BEFORE load still steps the loaded weights.
+        let target = handle_of(bespoke(
+            &mut registry,
+            json!({"op":"nn","kind":"linear","args":{"in_features":2,"out_features":3}}),
+        ));
+        let opt = handle_of(bespoke(
+            &mut registry,
+            json!({"op":"nn","kind":"sgd","args":{"module": target, "lr": 0.1}}),
+        ));
+        bespoke(
+            &mut registry,
+            json!({"op":"nn_load","module": target, "path": path_str}),
+        );
+        // Forward/sum/backward/step must move the LOADED weights.
+        let y = handle_of(bespoke(
+            &mut registry,
+            json!({"op":"forward","module": target, "tensor": x}),
+        ));
+        let spec = nutorch_ops::find("sum").unwrap();
+        let loss = match execute_table(&mut registry, spec, &[y], &serde_json::Map::new()) {
+            Response::Handles { handles, .. } => handles[0].clone(),
+            o => panic!("{o:?}"),
+        };
+        let spec = nutorch_ops::find("backward").unwrap();
+        let _ = execute_table(&mut registry, spec, &[loss], &serde_json::Map::new());
+        let w_before = forward_json(&mut registry, &target, &x);
+        bespoke(&mut registry, json!({"op":"step","optimizer": opt}));
+        let w_after = forward_json(&mut registry, &target, &x);
+        assert_ne!(
+            w_before, w_after,
+            "optimizer must still alias loaded params"
+        );
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

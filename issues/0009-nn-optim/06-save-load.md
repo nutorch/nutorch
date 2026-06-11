@@ -122,3 +122,55 @@ confirmed sound: CPU-side save matches the API's host-memory reconstruction;
 in-place `copy_` under no_grad preserves the optimizer-aliasing contract;
 validate-all-before- copy; client-side path resolution; the silent f64→f32
 `copy_` cast matching PyTorch's own load behavior.
+
+## Result
+
+**Result:** Pass
+
+The state_dict travels. Save/load landed exactly as designed, with the
+num_batches_tracked buffer making the files genuine PyTorch interchange.
+
+- **Unit tests** (79 daemon tests): the full round trip (seeded model → save →
+  fresh different-init model → load → forward EXACTLY reproduces the original,
+  batch_norm running stats included); the name scheme asserted verbatim
+  (`0.weight … 1.running_mean, 1.running_var,
+  1.num_batches_tracked` —
+  PyTorch's keys); failed loads (wrong architecture, missing keys) leave the
+  target byte-unchanged; missing file → `bad_argument`; **optimizer aliasing
+  survives load** (an optimizer built before load still steps the loaded weights
+  — the live-view contract through `copy_` under no_grad).
+- **Live**: round trip exact (orig == after ≠ before); wrong-architecture load
+  errors naming the key (`shape mismatch for bias: module [4],
+  file [1]`);
+  **the Python cross-check reads the daemon's file** via
+  `safetensors.torch.load_file` with matching keys and values (`safetensors`
+  pip-installed into the gitignored venv, as recorded); `train-regression.sh`
+  still passes.
+- **Hygiene**: build 0 warnings; fmt/dprint clean; 255 goldens untouched and
+  green; `v1/` untouched.
+
+## Conclusion
+
+The issue's last strand is delivered. Nothing in the object model resisted:
+named_state walks the same tree parameters() does, load is the free/ sequential
+atomicity invariant applied to files, and safetensors gives interoperability for
+free. The issue can close.
+
+## Result Review
+
+**Reviewer:** `adversarial-reviewer` subagent (fresh context, read-only),
+reviewing the pre-commit working tree. **Verdict: APPROVED — no Required,
+Optional, or Nit findings.** The reviewer reproduced everything and went further
+than the design asked: the buffer verified live (exactly 3 after 3 train
+forwards, read back by Python as int64), the key list verbatim, the round trip
+bit-exact, **interchange verified in BOTH directions** (a hand-written PyTorch
+state_dict from Python loaded into a daemon module, forward matching PyTorch
+exactly), atomicity and error mapping exercised across
+missing/unexpected/mismatched keys and missing files, optimizer aliasing
+surviving load, client-side relative paths resolving, both training scripts
+passing, and registry hygiene (no intermediate-tensor leakage from save/load).
+It also noted the fixed-momentum BatchNorm not consuming the counter is itself
+PyTorch parity (PyTorch reads it only under momentum=None, a mode we don't
+expose). **Close readiness: READY** — the issue's full scope audited as
+delivered or honestly excluded, all four recorded decisions honored, all Out
+items absent.

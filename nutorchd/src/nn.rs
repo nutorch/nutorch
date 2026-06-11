@@ -59,6 +59,9 @@ pub enum NnModule {
         bias: Tensor,
         running_mean: Tensor,
         running_var: Tensor,
+        /// int64 scalar buffer, PyTorch state_dict parity (issue 0009
+        /// exp 6) — incremented per train-mode forward.
+        num_batches_tracked: Tensor,
         eps: f64,
         momentum: f64,
         training: bool,
@@ -231,23 +234,30 @@ impl NnModule {
                 bias,
                 running_mean,
                 running_var,
+                num_batches_tracked,
                 eps,
                 momentum,
                 training,
-            } => input
-                // Running stats mutate IN PLACE during train-mode forward
-                // (libtorch interior mutability) — &self survives.
-                .f_batch_norm(
-                    Some(weight),
-                    Some(bias),
-                    Some(running_mean),
-                    Some(running_var),
-                    *training,
-                    *momentum,
-                    *eps,
-                    false,
-                )
-                .map_err(tch_error),
+            } => {
+                if *training {
+                    let mut counter = num_batches_tracked.shallow_clone();
+                    let _ = counter.f_add_scalar_(1).map_err(tch_error)?;
+                }
+                input
+                    // Running stats mutate IN PLACE during train-mode forward
+                    // (libtorch interior mutability) — &self survives.
+                    .f_batch_norm(
+                        Some(weight),
+                        Some(bias),
+                        Some(running_mean),
+                        Some(running_var),
+                        *training,
+                        *momentum,
+                        *eps,
+                        false,
+                    )
+                    .map_err(tch_error)
+            }
             NnModule::GroupNorm {
                 num_groups,
                 weight,
@@ -364,6 +374,102 @@ impl NnModule {
             .iter()
             .map(|t| t.numel() as u64 * t.kind().elt_size_in_bytes() as u64)
             .sum()
+    }
+
+    /// PyTorch state_dict naming (issue 0009 exp 6): leaf entries are
+    /// weight/bias (+ buffer names); Sequential children prefix their
+    /// index recursively. Includes BUFFERS (running stats, the batch
+    /// counter) — state_dict does, parameters() does not.
+    pub fn named_state(&self) -> Vec<(String, &Tensor)> {
+        let mut entries = Vec::new();
+        self.collect_named_state("", &mut entries);
+        entries
+    }
+
+    fn collect_named_state<'a>(&'a self, prefix: &str, entries: &mut Vec<(String, &'a Tensor)>) {
+        let name = |leaf: &str| {
+            if prefix.is_empty() {
+                leaf.to_string()
+            } else {
+                format!("{prefix}.{leaf}")
+            }
+        };
+        match self {
+            NnModule::Linear { weight, bias }
+            | NnModule::Conv1d { weight, bias, .. }
+            | NnModule::Conv2d { weight, bias, .. }
+            | NnModule::ConvTranspose2d { weight, bias, .. } => {
+                entries.push((name("weight"), weight));
+                if let Some(bias) = bias {
+                    entries.push((name("bias"), bias));
+                }
+            }
+            NnModule::Embedding { weight } => entries.push((name("weight"), weight)),
+            NnModule::LayerNorm { weight, bias, .. } | NnModule::GroupNorm { weight, bias, .. } => {
+                entries.push((name("weight"), weight));
+                entries.push((name("bias"), bias));
+            }
+            NnModule::BatchNorm {
+                weight,
+                bias,
+                running_mean,
+                running_var,
+                num_batches_tracked,
+                ..
+            } => {
+                entries.push((name("weight"), weight));
+                entries.push((name("bias"), bias));
+                entries.push((name("running_mean"), running_mean));
+                entries.push((name("running_var"), running_var));
+                entries.push((name("num_batches_tracked"), num_batches_tracked));
+            }
+            NnModule::Sequential { children } => {
+                for (index, child) in children.iter().enumerate() {
+                    let child_prefix = if prefix.is_empty() {
+                        index.to_string()
+                    } else {
+                        format!("{prefix}.{index}")
+                    };
+                    child.collect_named_state(&child_prefix, entries);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// load_state_dict semantics: every file key must match a module key
+    /// with an identical shape; missing/unexpected/mismatched errors
+    /// name the key, all-or-nothing (validated BEFORE any copy); values
+    /// copy in place under no_grad so optimizer views and autograd
+    /// leaves survive.
+    pub fn load_state(&self, file: &[(String, Tensor)]) -> Result<(), String> {
+        let targets = self.named_state();
+        for (key, _) in &targets {
+            if !file.iter().any(|(k, _)| k == key) {
+                return Err(format!("load: missing key in file: {key}"));
+            }
+        }
+        for (key, value) in file {
+            let Some((_, target)) = targets.iter().find(|(k, _)| k == key) else {
+                return Err(format!("load: unexpected key in file: {key}"));
+            };
+            if target.size() != value.size() {
+                return Err(format!(
+                    "load: shape mismatch for {key}: module {:?}, file {:?}",
+                    target.size(),
+                    value.size()
+                ));
+            }
+        }
+        tch::no_grad(|| -> Result<(), String> {
+            for (key, value) in file {
+                let (_, target) = targets.iter().find(|(k, _)| k == key).unwrap();
+                let mut alias = target.shallow_clone();
+                let on_device = value.f_to_device(target.device()).map_err(tch_error)?;
+                alias.f_copy_(&on_device).map_err(tch_error)?;
+            }
+            Ok(())
+        })
     }
 
     /// One line per fact, for `torch nn info`.

@@ -64,6 +64,10 @@ optimizers: `sgd adam adamw
 rmsprop` (see `torch nn <kind> --help`-style usage
 errors for each). `torch nn train|eval $m` switches dropout/batch_norm behavior.
 
+Save and load a model's state (safetensors — PyTorch-interchangeable, including
+buffers): `torch nn save $m model.safetensors`, then
+`torch nn load $fresh model.safetensors` into a same-architecture module.
+
 Losses are ordinary ops: `torch mse_loss $pred $target | torch backward` (also
 `cross_entropy`, `l1_loss`, `binary_cross_entropy_with_logits`, … — see
 `torch ops` under `loss`).

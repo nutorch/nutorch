@@ -62,6 +62,17 @@ pub enum Bespoke {
         optimizer: String,
         lr: f64,
     },
+    /// state_dict save/load (issue 0009 exp 6).
+    #[serde(rename = "nn_save")]
+    NnSave {
+        module: String,
+        path: String,
+    },
+    #[serde(rename = "nn_load")]
+    NnLoad {
+        module: String,
+        path: String,
+    },
     /// Train/eval mode (issue 0009 exp 5).
     #[serde(rename = "nn_mode")]
     NnMode {

@@ -600,6 +600,34 @@ fn build_nn_request(args: &RawArgs) -> Result<serde_json::Value, String> {
             collect_kind_flags(kind, args, &mut nn_args)?;
             Ok(serde_json::json!({ "op": "nn", "kind": "layer_norm", "args": nn_args }))
         }
+        "save" | "load" => {
+            let module = args
+                .positionals
+                .get(1)
+                .cloned()
+                .ok_or(format!("usage: torch nn {kind} <nn://module> <path>"))?;
+            let raw_path = args
+                .positionals
+                .get(2)
+                .cloned()
+                .ok_or(format!("usage: torch nn {kind} <nn://module> <path>"))?;
+            // Resolve relative paths against the USER's cwd, not the
+            // daemon's (the daemon was spawned who-knows-where).
+            let path = std::path::Path::new(&raw_path);
+            let absolute = if path.is_absolute() {
+                raw_path
+            } else {
+                std::env::current_dir()
+                    .map_err(|e| format!("cannot resolve cwd: {e}"))?
+                    .join(path)
+                    .to_string_lossy()
+                    .into_owned()
+            };
+            Ok(serde_json::json!({
+                "op": if kind == "save" { "nn_save" } else { "nn_load" },
+                "module": module, "path": absolute,
+            }))
+        }
         "train" | "eval" => {
             let module = args
                 .positionals
