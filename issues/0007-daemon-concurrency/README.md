@@ -1,6 +1,7 @@
 +++
-status = "open"
+status = "closed"
 opened = "2026-06-11"
+closed = "2026-06-11"
 +++
 
 # Issue 7: Concurrent connections, serialized execution
@@ -94,3 +95,34 @@ full existing suite (unit, golden, lifecycle) green unchanged.
   — **Pass** (one file changed; the parked-client hang demonstrated before and
   dead after; 600-tensor stress exact; shutdown under load with zero
   user-visible disruption via auto-spawn)
+
+## Conclusion
+
+**Solved**, in one experiment, at the declared price: the whole change is one
+file (`nutorchd/src/main.rs`) — `Arc<Mutex<Registry>>`, thread-per-connection,
+the lock as the execution queue. The wire protocol, op table, grammar, client,
+and every existing test are untouched.
+
+The contract delivered exactly as settled before the issue opened: concurrent
+connections (a parked client — demonstrated to wedge the pre-change daemon — now
+costs only its own thread), serialized execution (parallel `mm`s queue behind
+the lock and come out whole-tensor-equal to solo runs; an 8-shell stress landed
+exactly its 600 tensors with zero errors), and no parallelism anywhere.
+
+All four design corners resolved:
+
+1. **Shutdown** holds the registry lock from dispatch straight through `exit()`
+   — no op can be mid-execution at death; peers see EOF, which clients already
+   handle. Under load the observed behavior was stronger than designed:
+   post-stop clients transparently auto-spawn a successor (issue 0004's
+   contract), zero user-visible disruption.
+2. **TTL coherence**: the expiry watcher checks the lease under the registry
+   lock (same registry→lifecycle order as the request path), so expiry can never
+   fire mid-op — closing a race the SERIAL daemon already had — while an idle
+   open connection correctly fails to pin the lease.
+3. **Error isolation**: per-connection streams; garbage answers on its own
+   stream only.
+4. **Accounting**: `status`/`tensors` snapshot under the same lock, exercised
+   under concurrent load.
+
+The stuck-client defect class — the reason this issue existed — is dead.
