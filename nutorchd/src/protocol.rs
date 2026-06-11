@@ -20,6 +20,13 @@ pub enum Bespoke {
     Value {
         handle: String,
     },
+    /// Free tensors by handle, or all of them. Exactly one of the two
+    /// fields must be meaningfully present (validated in dispatch;
+    /// `all: false` counts as "not requested").
+    Free {
+        handles: Option<Vec<String>>,
+        all: Option<bool>,
+    },
     Status,
     #[serde(rename = "set_ttl")]
     SetTtl {

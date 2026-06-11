@@ -109,4 +109,5 @@ formats for very large tensors.
 ## Experiments
 
 - [Experiment 1: `torch free` — the first verb that removes](01-torch-free.md) —
-  **Designed**
+  **Pass** (atomic free by arg/stdin/--all; the rm convention; registry
+  accounting verified to the byte; op table untouched)

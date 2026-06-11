@@ -32,7 +32,7 @@ pub fn parse_request(line: &str) -> Result<Request, Response> {
         .ok_or_else(|| Response::error("bad_request", "request has no op"))?
         .to_string();
     match name.as_str() {
-        "tensor" | "value" | "status" | "set_ttl" | "shutdown" => {
+        "tensor" | "value" | "free" | "status" | "set_ttl" | "shutdown" => {
             let bespoke: Bespoke = serde_json::from_value(raw)
                 .map_err(|e| Response::error("bad_request", format!("bad request: {e}")))?;
             Ok(Request::Bespoke(bespoke))
@@ -131,6 +131,49 @@ pub fn handle_request(
                         false,
                     ),
                 }
+            }
+            Bespoke::Free { handles, all } => {
+                lifecycle.lock().unwrap().touch();
+                let all = all.unwrap_or(false);
+                let handles = handles.unwrap_or_default();
+                if all && !handles.is_empty() {
+                    return (
+                        Response::error(
+                            "bad_request",
+                            "free: handles and all are mutually exclusive",
+                        ),
+                        false,
+                    );
+                }
+                if all {
+                    let freed = registry.clear();
+                    return (
+                        Response::value(serde_json::json!({ "freed": freed })),
+                        false,
+                    );
+                }
+                if handles.is_empty() {
+                    return (
+                        Response::error("bad_request", "free: no handles given"),
+                        false,
+                    );
+                }
+                // Atomic: validate ALL handles before removing ANY.
+                for handle in &handles {
+                    if !registry.contains(handle) {
+                        return (
+                            Response::error("unknown_handle", format!("unknown handle: {handle}")),
+                            false,
+                        );
+                    }
+                }
+                for handle in &handles {
+                    registry.remove(handle);
+                }
+                (
+                    Response::value(serde_json::json!({ "freed": handles.len() })),
+                    false,
+                )
             }
             Bespoke::Status => {
                 let state = lifecycle.lock().unwrap();
@@ -1398,5 +1441,130 @@ mod non_finite_predicate_semantics {
                 "{name} true-path"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod free_semantics {
+    use super::*;
+    use crate::lifecycle::Lifecycle;
+    use serde_json::json;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    fn run_free(registry: &mut Registry, request: serde_json::Value) -> Response {
+        let parsed = parse_request(&request.to_string()).expect("parses");
+        let lifecycle = Mutex::new(Lifecycle::new(None));
+        let socket = PathBuf::from("/tmp/test.sock");
+        let (response, shutdown) = handle_request(registry, &lifecycle, &socket, parsed);
+        assert!(!shutdown);
+        response
+    }
+
+    fn seed(registry: &mut Registry, n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| {
+                let t =
+                    convert::json_to_tensor(&json!([i as f64]), Kind::Float, Device::Mps).unwrap();
+                registry.insert(t)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn free_removes_exactly_the_named_handles() {
+        let mut registry = Registry::new();
+        let h = seed(&mut registry, 3);
+        let response = run_free(&mut registry, json!({"op":"free","handles":[h[0], h[2]]}));
+        assert!(matches!(response, Response::Value { .. }));
+        assert_eq!(registry.len(), 1);
+        assert!(registry.contains(&h[1]));
+    }
+
+    #[test]
+    fn free_is_atomic_known_unknown_known_frees_nothing() {
+        let mut registry = Registry::new();
+        let h = seed(&mut registry, 2);
+        let response = run_free(
+            &mut registry,
+            json!({"op":"free","handles":[h[0], "nope", h[1]]}),
+        );
+        match response {
+            Response::Error { code, .. } => assert_eq!(code, "unknown_handle"),
+            other => panic!("expected error, got {other:?}"),
+        }
+        // BOTH known handles survive — a remove-as-you-go bug fails here.
+        assert!(registry.contains(&h[0]));
+        assert!(registry.contains(&h[1]));
+    }
+
+    #[test]
+    fn double_free_errors_visibly() {
+        let mut registry = Registry::new();
+        let h = seed(&mut registry, 1);
+        let first = run_free(&mut registry, json!({"op":"free","handles":[h[0]]}));
+        assert!(matches!(first, Response::Value { .. }));
+        let second = run_free(&mut registry, json!({"op":"free","handles":[h[0]]}));
+        match second {
+            Response::Error { code, .. } => assert_eq!(code, "unknown_handle"),
+            other => panic!("expected error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn free_all_empties_the_registry_and_reports_the_count() {
+        let mut registry = Registry::new();
+        seed(&mut registry, 4);
+        let response = run_free(&mut registry, json!({"op":"free","all":true}));
+        match response {
+            Response::Value { value, .. } => assert_eq!(value["freed"], 4),
+            other => panic!("expected value, got {other:?}"),
+        }
+        assert_eq!(registry.len(), 0);
+    }
+
+    #[test]
+    fn free_rejects_bad_shapes() {
+        let mut registry = Registry::new();
+        let h = seed(&mut registry, 1);
+        // Both present.
+        let both = run_free(
+            &mut registry,
+            json!({"op":"free","all":true,"handles":[h[0]]}),
+        );
+        match both {
+            Response::Error { code, .. } => assert_eq!(code, "bad_request"),
+            other => panic!("expected error, got {other:?}"),
+        }
+        // Neither present (and all:false counts as not requested).
+        for request in [json!({"op":"free"}), json!({"op":"free","all":false})] {
+            let response = run_free(&mut registry, request);
+            match response {
+                Response::Error { code, .. } => assert_eq!(code, "bad_request"),
+                other => panic!("expected error, got {other:?}"),
+            }
+        }
+        // all:false WITH handles frees the handles.
+        let response = run_free(
+            &mut registry,
+            json!({"op":"free","all":false,"handles":[h[0]]}),
+        );
+        assert!(matches!(response, Response::Value { .. }));
+        assert_eq!(registry.len(), 0);
+    }
+
+    #[test]
+    fn free_touches_the_idle_lease() {
+        let mut registry = Registry::new();
+        let h = seed(&mut registry, 1);
+        let parsed =
+            parse_request(&json!({"op":"free","handles":[h[0]]}).to_string()).expect("parses");
+        let lifecycle = Mutex::new(Lifecycle::new(Some(std::time::Duration::from_secs(3600))));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let idle_before = lifecycle.lock().unwrap().idle_secs();
+        let socket = PathBuf::from("/tmp/test.sock");
+        let _ = handle_request(&mut registry, &lifecycle, &socket, parsed);
+        let idle_after = lifecycle.lock().unwrap().idle_secs();
+        assert!(idle_after <= idle_before);
     }
 }

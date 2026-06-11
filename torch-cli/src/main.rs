@@ -145,6 +145,10 @@ fn print_response(response: &serde_json::Value) {
 
 // ---------- argument parsing ----------
 
+/// Presence-only flags on bespoke (non-table) ops; all other bespoke
+/// flags take a value.
+const BESPOKE_PRESENCE_FLAGS: &[&str] = &["all"];
+
 struct RawArgs {
     op: String,
     positionals: Vec<String>,
@@ -182,7 +186,13 @@ fn parse_raw(spec: Option<&OpSpec>) -> Result<RawArgs, String> {
                         let value = raw.next().ok_or(format!("--{name} needs a value"))?;
                         flags.push((name, Some(value)));
                     }
-                    // Bespoke ops (tensor) validate their own flags below.
+                    // Bespoke ops validate their own flags below. Flags in
+                    // BESPOKE_PRESENCE_FLAGS are presence-only — without
+                    // this, `torch free --all $t` would silently swallow
+                    // `$t` as the flag's value (design-review finding).
+                    None if spec.is_none() && BESPOKE_PRESENCE_FLAGS.contains(&name.as_str()) => {
+                        flags.push((name, None));
+                    }
                     None if spec.is_none() => {
                         let value = raw.next().ok_or(format!("--{name} needs a value"))?;
                         flags.push((name, Some(value)));
@@ -407,6 +417,31 @@ fn build_bespoke_request(args: &RawArgs) -> Result<serde_json::Value, String> {
             let handle = positional_or_stdin(args, 0, "tensor handle")?;
             Ok(serde_json::json!({ "op": "value", "handle": handle }))
         }
+        "free" => {
+            let mut all = false;
+            for (name, _) in &args.flags {
+                match name.as_str() {
+                    "all" => all = true,
+                    other => return Err(format!("unknown flag: --{other}")),
+                }
+            }
+            let mut handles = args.positionals.clone();
+            if !all && handles.is_empty() && !std::io::stdin().is_terminal() {
+                handles = read_stdin_lines()?;
+            }
+            if all && !handles.is_empty() {
+                return Err("free: --all and handles are mutually exclusive".to_string());
+            }
+            if all {
+                return Ok(serde_json::json!({ "op": "free", "all": true }));
+            }
+            if handles.is_empty() {
+                return Err(
+                    "free: pass handles as arguments, pipe them in, or use --all".to_string(),
+                );
+            }
+            Ok(serde_json::json!({ "op": "free", "handles": handles }))
+        }
         other => Err(format!("unknown op: {other} (see `torch ops`)")),
     }
 }
@@ -589,7 +624,11 @@ fn run() -> Result<(), String> {
         ensure_daemon(&socket)?;
     }
     let response = exchange(&socket, &request)?;
-    print_response(&response);
+    // The rm convention: free prints nothing on success (the daemon's
+    // {"freed":N} stays on the wire for tooling).
+    if args.op != "free" {
+        print_response(&response);
+    }
     Ok(())
 }
 

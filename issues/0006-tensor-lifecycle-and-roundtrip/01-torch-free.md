@@ -2,6 +2,16 @@
 [implementer]
 agent = "claude-code"
 model = "claude-fable-5"
+
+[review.design]
+agent = "claude-code"
+subagent = "adversarial-reviewer"
+model = "claude-opus"
+
+[review.result]
+agent = "claude-code"
+subagent = "adversarial-reviewer"
+model = "claude-opus"
 +++
 
 # Experiment 1: `torch free` — the first verb that removes
@@ -119,3 +129,58 @@ confirmed the bespoke-vs-table rationale against execute_table's borrow
 contract, the serde tag mapping (`Free` → `"free"` needs no rename), the
 Response::Value shape, and the lease-touch convention. Approved with the fixes
 in place (the fixes are the reviewer's prescriptions verbatim).
+
+## Result
+
+**Result:** Pass
+
+The registry has its first reclaim path, in exactly the bespoke shape the design
+called for — the op table and its machinery are untouched.
+
+- **Unit tests**: all six designed cases green (38 daemon unit tests total, up
+  from 32), including the ordering-pinned atomicity case
+  (`[known_a, unknown, known_b]` errors and BOTH known handles survive) and the
+  `all: false` semantics (alone → `bad_request`; with handles → frees them).
+- **Live**: create 3 → free by arg → 2 → free by stdin → 1 → `--all` → 0;
+  success prints nothing (exit 0); double free → `unknown handle`, exit 1; the
+  atomic mix errors AND the known handle still reads back `[4.0]`; `--all $t` is
+  the mutual-exclusion error (not a swallowed argument — the design-review fix,
+  observed); bare `torch free` at EOF-stdin is a usage error, no hang;
+  `torch add $e $f | torch free` reclaims a pipeline's own result; registry
+  accounting walks 16 → 67,108,880 → 16 bytes around a freed
+  `randn '[4096,4096]'` (the exact 64 MiB + the 16-byte survivor); `free` resets
+  the idle clock (2s → 0s).
+- **Hygiene**: build 0 warnings; fmt clean; 207 goldens untouched and green;
+  `v1/` untouched.
+- **One implementation addition beyond the design text**: the client suppresses
+  `print_response` for `free` (the daemon's `{"freed":N}` would otherwise have
+  printed, violating the rm convention). One line, in the declared client site.
+
+## Conclusion
+
+The bespoke shape was right: `free` needed `&mut` registry access nothing in the
+table contract offers, and it cost zero table changes. The presence-only-flag
+set (`BESPOKE_PRESENCE_FLAGS`) the design review forced into existence is
+reusable for any future bespoke flag. Next: `torch
+tensors` — the listing that
+makes `free` targetable (`torch tensors | awk '{print $1}' | torch free` is the
+composition the issue promises).
+
+## Result Review
+
+**Reviewer:** `adversarial-reviewer` subagent (fresh context, read-only),
+reviewing the pre-commit working tree. **First pass: CHANGES REQUIRED** — one
+Required finding, purely workflow: the issue README's index line still said
+**Designed** while this file recorded **Pass** (the status update had silently
+failed against dprint's line wrapping — the third silent-replace escape this
+project has logged; fixed with an asserting replace). Everything substantive was
+verified and held: all three design-review mandates confirmed real in code and
+live (`--all` alone succeeds, `--all
+$t` is mutual-exclusion not a swallowed
+argument; the accounting claim correctly scoped to the registry, not the
+allocator; the ordering-pinned atomicity test asserts both survivors);
+validate-before-remove confirmed at the code level; the full live matrix
+reproduced (double free, EOF usage error with no hang, silent success, pipeline
+self-reclaim, `{"freed":N}` on the wire via nc, `all:false` both shapes, lease
+reset, the byte-exact 67,108,864 accounting walk); hygiene gates all green with
+the 207 goldens untouched.

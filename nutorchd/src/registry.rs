@@ -25,6 +25,21 @@ impl Registry {
         self.tensors.get(handle)
     }
 
+    pub fn remove(&mut self, handle: &str) -> Option<Tensor> {
+        self.tensors.remove(handle)
+    }
+
+    /// Empty the registry; returns how many tensors were freed.
+    pub fn clear(&mut self) -> usize {
+        let count = self.tensors.len();
+        self.tensors.clear();
+        count
+    }
+
+    pub fn contains(&self, handle: &str) -> bool {
+        self.tensors.contains_key(handle)
+    }
+
     pub fn len(&self) -> usize {
         self.tensors.len()
     }
