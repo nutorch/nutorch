@@ -2,8 +2,9 @@
 
 ## Open
 
-| # | Title | Opened |
-| - | ----- | ------ |
+| #                                      | Title                                                                              | Opened     |
+| -------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
+| [0005](0005-tensor-op-suite/README.md) | The full tensor-op surface — a high-quality CLI for every PyTorch tensor operation | 2026-06-10 |
 
 ## Closed
 
