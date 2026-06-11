@@ -91,4 +91,6 @@ full existing suite (unit, golden, lifecycle) green unchanged.
 ## Experiments
 
 - [Experiment 1: Thread-per-connection, one lock as the execution queue](01-thread-per-connection.md)
-  — **Designed**
+  — **Pass** (one file changed; the parked-client hang demonstrated before and
+  dead after; 600-tensor stress exact; shutdown under load with zero
+  user-visible disruption via auto-spawn)

@@ -69,8 +69,12 @@ fn probe_and_bind(socket: &Path) -> std::io::Result<Option<UnixListener>> {
     UnixListener::bind(socket).map(Some)
 }
 
+/// Serve one connection on its own thread (issue 0007). The registry lock
+/// is the execution queue: each request dispatches under it, so ops stay
+/// strictly serialized while connections are concurrent — a parked or
+/// stuck peer holds nothing but its own thread.
 fn serve_connection(
-    registry: &mut Registry,
+    registry: &Mutex<Registry>,
     lifecycle: &Mutex<Lifecycle>,
     socket: &Path,
     stream: UnixStream,
@@ -82,22 +86,41 @@ fn serve_connection(
         if line.trim().is_empty() {
             continue;
         }
-        let (response, shutdown) = match parse_request(&line) {
-            Ok(request) => handle_request(registry, lifecycle, socket, request),
-            Err(error_response) => (error_response, false),
+        let response = match parse_request(&line) {
+            Ok(request) => {
+                // Lock ordering everywhere: registry, then lifecycle
+                // (handle_request takes the lifecycle lock inside).
+                let mut guard = registry.lock().unwrap();
+                let (response, shutdown) = handle_request(&mut guard, lifecycle, socket, request);
+                if shutdown {
+                    // Hold the registry lock straight through exit: no op
+                    // can start between the shutdown response and process
+                    // death (concurrent peers see EOF — same as a crash,
+                    // which clients already handle).
+                    write_response(&mut writer, &response)?;
+                    println!("shutdown requested; exiting");
+                    let _ = std::fs::remove_file(socket);
+                    std::process::exit(0);
+                }
+                response
+            }
+            Err(error_response) => error_response,
         };
-        let mut payload = serde_json::to_string(&response).expect("response serializes");
-        payload.push('\n');
-        writer.write_all(payload.as_bytes())?;
-        writer.flush()?;
-        if shutdown {
-            // Graceful: the response is flushed; now clean up and exit.
-            println!("shutdown requested; exiting");
-            let _ = std::fs::remove_file(socket);
-            std::process::exit(0);
-        }
+        // Normal responses write OUTSIDE the lock; streams are
+        // per-connection, so there is nothing to interleave with.
+        write_response(&mut writer, &response)?;
     }
     Ok(())
+}
+
+fn write_response(
+    writer: &mut UnixStream,
+    response: &nutorchd::protocol::Response,
+) -> std::io::Result<()> {
+    let mut payload = serde_json::to_string(response).expect("response serializes");
+    payload.push('\n');
+    writer.write_all(payload.as_bytes())?;
+    writer.flush()
 }
 
 fn main() -> std::io::Result<()> {
@@ -136,17 +159,26 @@ fn main() -> std::io::Result<()> {
 
     let lifecycle = Arc::new(Mutex::new(Lifecycle::new(args.ttl)));
 
-    // Expiry watcher: wakes ~1x/second; on idle expiry, cleans up and exits.
+    let registry = Arc::new(Mutex::new(Registry::new()));
+
+    // Expiry watcher: wakes ~1x/second. It takes the REGISTRY lock first,
+    // then checks the lease (same registry→lifecycle order as the request
+    // path — no deadlock), so expiry can never fire while an op is
+    // mid-execution or has touched-but-not-started: any request that won
+    // the lock already touched. Exits holding the lock.
     {
         let lifecycle = Arc::clone(&lifecycle);
+        let registry = Arc::clone(&registry);
         let socket = args.socket.clone();
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_secs(1));
+            let guard = registry.lock().unwrap();
             if lifecycle.lock().unwrap().expired() {
                 println!("idle ttl expired; exiting");
                 let _ = std::fs::remove_file(&socket);
                 std::process::exit(0);
             }
+            drop(guard);
         });
     }
 
@@ -166,13 +198,19 @@ fn main() -> std::io::Result<()> {
         });
     }
 
-    let mut registry = Registry::new();
+    // Thread-per-connection (issue 0007): a slow or stuck client parks
+    // its own thread and blocks nobody.
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                if let Err(e) = serve_connection(&mut registry, &lifecycle, &args.socket, stream) {
-                    eprintln!("connection error: {e}");
-                }
+                let registry = Arc::clone(&registry);
+                let lifecycle = Arc::clone(&lifecycle);
+                let socket = args.socket.clone();
+                std::thread::spawn(move || {
+                    if let Err(e) = serve_connection(&registry, &lifecycle, &socket, stream) {
+                        eprintln!("connection error: {e}");
+                    }
+                });
             }
             Err(e) => eprintln!("accept error: {e}"),
         }

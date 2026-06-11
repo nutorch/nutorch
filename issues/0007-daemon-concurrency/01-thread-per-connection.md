@@ -133,3 +133,67 @@ watcher and all request-path arms acquire registry → lifecycle in the same
 order, so the deadlock the design must avoid cannot occur; the preserved
 `&mut Registry` signature keeps every existing test compiling unmodified;
 `exit()` while holding a Mutex is harmless; both exit paths unlink first.
+
+## Result
+
+**Result:** Pass
+
+The contract holds, and the change stayed exactly inside its mandate: one file
+(`nutorchd/src/main.rs`), zero dispatch/protocol/ops/client edits, zero
+test-file edits.
+
+- **The headline, both directions**: the pre-change binary demonstrably hung (a
+  parked Python socket + a concurrent `sin` still blocked after 3s — the
+  baseline, run before editing); the post-change daemon serves ops normally with
+  the same parked client sitting on its thread.
+- **Stress**: 8 shells × 25 iterations of tensor→add→value — 0 errors, every add
+  exact, final count **exactly 600**, daemon log free of panics.
+- **Serialization with teeth**: two parallel 512² `mm`s each
+  whole-tensor-`equal` to the solo run.
+- **Shutdown under load**: a stop racing four parallel burst loops — the stopper
+  got its confirmation, all loops finished (no hangs), the socket unlinked, no
+  zombie. **One recorded deviation, stronger than the design's expectation**:
+  the design predicted post-stop clients "get clean errors", but our own client
+  auto-spawns the daemon when it is down (issue 0004's invisible-plumbing
+  contract) — so post-stop iterations transparently started a successor and
+  succeeded, 200/200 with zero user-visible disruption. The successor is a fresh
+  pid doing legitimate work, not a zombie.
+- **TTL coherence**: `--ttl 2s` + a permanently open idle connection — ops every
+  0.5s kept the daemon alive (touches renew under the registry lock); after the
+  ops stopped it exited on schedule DESPITE the open connection (an open socket
+  is not work), logging `idle ttl expired`.
+- **Error isolation**: protocol garbage on one connection answered on its own
+  stream while a concurrent valid op succeeded untouched.
+- **Hygiene**: build 0 warnings; fmt/dprint clean; the FULL suite (49 unit + 207
+  golden + 3 smoke) green with zero test edits.
+
+Two verification-harness notes, recorded for honesty (neither is a product
+defect): a bare `wait` in one test script blocked on the 600-second parked
+client (the script's bug; re-run with targeted waits), and a `pgrep -f` zombie
+check false-positived on the test shell's own command line (the classic
+`pgrep -f` footgun; replaced with a socket-liveness check).
+
+## Conclusion
+
+Concurrent connections, serialized execution — delivered at the issue's declared
+price: `Arc<Mutex<Registry>>`, thread-per-connection, the lock as the execution
+queue, the watcher checking expiry under the same lock (which also closed a
+pre-existing mid-op-expiry race the serial daemon had), and shutdown holding the
+lock straight through exit. The stuck-client defect class is dead. The issue can
+close.
+
+## Result Review
+
+**Reviewer:** `adversarial-reviewer` subagent (fresh context, read-only),
+reviewing the pre-commit working tree. **Verdict: APPROVED — no Required,
+Optional, or Nit findings.** The reviewer independently confirmed the mandate
+boundary (git diff: main.rs only among source; zero test edits), traced every
+`.lock()` site to verify registry→lifecycle ordering at both acquisition points,
+read the shutdown branch holding the guard through `exit()`, and reproduced all
+seven live checks itself — including a lighter stress run (4×10 → exactly 120
+tensors, 0 errors), both parallel `mm`s equal to solo, the TTL exit despite a
+permanently open idle connection, and the post-stop auto-spawn deviation
+(verified honest: successor pid 55541 vs original 55516, per issue 0004's
+ensure_daemon). The two harness notes were checked against observation and found
+correctly framed as test-script issues. **Close readiness: READY** — the full
+contract, all four corners, and the verification sketch discharged.
