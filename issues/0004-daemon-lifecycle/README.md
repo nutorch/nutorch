@@ -117,3 +117,5 @@ structural change that makes expiry possible — settled in the experiment.
 - [Experiment 1: Daemon-side lifecycle — idle TTL, clean exits, probe-bind, and the three protocol ops](01-daemon-side-lifecycle.md)
   — **Pass** (expiry/renewal/status/set_ttl/shutdown/signals all behave; both
   socket debts closed; 32 tests green)
+- [Experiment 2: Client auto-spawn and the `torch daemon` command family](02-client-autospawn-and-verbs.md)
+  — **Designed**
