@@ -2,8 +2,9 @@
 
 ## Open
 
-| # | Title | Opened |
-| - | ----- | ------ |
+| #                                            | Title                                                          | Opened     |
+| -------------------------------------------- | -------------------------------------------------------------- | ---------- |
+| [0011](0011-homebrew-distribution/README.md) | Homebrew distribution — nutorch installs like a normal package | 2026-06-11 |
 
 ## Closed
 
