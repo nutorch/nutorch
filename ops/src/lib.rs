@@ -105,6 +105,20 @@ const fn unary(name: &'static str, summary: &'static str) -> OpSpec {
     }
 }
 
+const REDUCTION_ONLY: &[ParamSpec] = &[flag("reduction", ParamKind::Str)];
+
+const fn loss(name: &'static str, summary: &'static str) -> OpSpec {
+    OpSpec {
+        name,
+        category: "loss",
+        tensors: Arity::Exactly(2),
+        params: REDUCTION_ONLY,
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary,
+    }
+}
+
 const fn binary_compare(name: &'static str, summary: &'static str) -> OpSpec {
     OpSpec {
         name,
@@ -1311,6 +1325,58 @@ pub static OPS: &[OpSpec] = &[
         results: ResultKind::None,
         broadcasts: false,
         summary: "zero a tensor's accumulated gradient in place",
+    },
+    // --- losses (issue 0009 exp 3) ---
+    loss("mse_loss", "mean squared error (--reduction mean|sum|none)"),
+    loss("l1_loss", "mean absolute error (--reduction)"),
+    OpSpec {
+        name: "smooth_l1_loss",
+        category: "loss",
+        tensors: Arity::Exactly(2),
+        params: &[
+            flag("reduction", ParamKind::Str),
+            flag("beta", ParamKind::Float),
+        ],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary: "smooth L1 loss (--beta, default 1.0)",
+    },
+    OpSpec {
+        name: "huber_loss",
+        category: "loss",
+        tensors: Arity::Exactly(2),
+        params: &[
+            flag("reduction", ParamKind::Str),
+            flag("delta", ParamKind::Float),
+        ],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary: "Huber loss (--delta, default 1.0)",
+    },
+    loss(
+        "cross_entropy",
+        "cross entropy over logits vs int64 class indices",
+    ),
+    loss(
+        "nll_loss",
+        "negative log likelihood (log-prob inputs, int64 targets)",
+    ),
+    loss("binary_cross_entropy", "BCE over probabilities in [0,1]"),
+    loss(
+        "binary_cross_entropy_with_logits",
+        "BCE over logits (the stable form)",
+    ),
+    OpSpec {
+        name: "kl_div",
+        category: "loss",
+        tensors: Arity::Exactly(2),
+        params: &[
+            flag("reduction", ParamKind::Str),
+            flag("log_target", ParamKind::Bool),
+        ],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary: "KL divergence (--log_target if target is log-space)",
     },
     OpSpec {
         name: "manual_seed",

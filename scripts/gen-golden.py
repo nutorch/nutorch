@@ -556,7 +556,56 @@ nn_linear_case("nn_linear_relu", X, W, B, chain=["relu"])
 nn_linear_case("nn_linear_gelu", X, W, B, chain=["gelu"])
 nn_linear_case("nn_linear_sigmoid", X, W, B, chain=["sigmoid"])
 
+# --- losses (issue 0009 exp 3) vs torch.nn.functional on MPS ---
+import torch.nn.functional as F
+
+P2 = [[0.2, 0.8], [0.6, 0.4]]
+T2 = [[0.0, 1.0], [1.0, 0.0]]
+ok("loss_mse", "mse_loss", [t(P2), t(T2)], {},
+   lambda ts: [F.mse_loss(ts[0], ts[1])])
+ok("loss_mse_sum", "mse_loss", [t(P2), t(T2)], {"reduction": "sum"},
+   lambda ts: [F.mse_loss(ts[0], ts[1], reduction="sum")])
+ok("loss_mse_none", "mse_loss", [t(P2), t(T2)], {"reduction": "none"},
+   lambda ts: [F.mse_loss(ts[0], ts[1], reduction="none")])
+ok("loss_l1", "l1_loss", [t(P2), t(T2)], {},
+   lambda ts: [F.l1_loss(ts[0], ts[1])])
+ok("loss_smooth_l1", "smooth_l1_loss", [t(P2), t(T2)], {"beta": 0.5},
+   lambda ts: [F.smooth_l1_loss(ts[0], ts[1], beta=0.5)])
+ok("loss_huber", "huber_loss", [t(P2), t(T2)], {"delta": 0.5},
+   lambda ts: [F.huber_loss(ts[0], ts[1], delta=0.5)])
+LOGITS = [[2.0, 0.5, -1.0], [0.1, 1.5, 0.3]]
+ok("loss_cross_entropy", "cross_entropy", [t(LOGITS), t([0, 2], "int64")], {},
+   lambda ts: [F.cross_entropy(ts[0], ts[1])])
+ok("loss_nll", "nll_loss",
+   [t([[ -0.5, -1.2, -2.0], [-1.0, -0.3, -2.5]]), t([1, 0], "int64")], {},
+   lambda ts: [F.nll_loss(ts[0], ts[1])])
+ok("loss_bce", "binary_cross_entropy", [t([0.8, 0.2, 0.6]), t([1.0, 0.0, 1.0])], {},
+   lambda ts: [F.binary_cross_entropy(ts[0], ts[1])])
+ok("loss_bce_logits", "binary_cross_entropy_with_logits",
+   [t([1.5, -0.5, 0.2]), t([1.0, 0.0, 1.0])], {},
+   lambda ts: [F.binary_cross_entropy_with_logits(ts[0], ts[1])])
+ok("loss_kl_div", "kl_div",
+   [t([[-1.0, -0.5, -2.0]]), t([[0.3, 0.5, 0.2]])], {},
+   lambda ts: [F.kl_div(ts[0], ts[1])])
+
+# Gradient through mse_loss: a DISTINCT non-grad target; only x.grad compared.
+x = torch.tensor([0.5, 1.5, -0.5], dtype=torch.float32, device=DEV).requires_grad_(True)
+tgt = torch.tensor([1.0, 1.0, 0.0], dtype=torch.float32, device=DEV)
+F.mse_loss(x, tgt).backward()
+cases.append({
+    "name": "loss_mse_grad",
+    "grad_op": "mse_loss",
+    "input": {"data": [0.5, 1.5, -0.5], "dtype": "float32"},
+    "target": {"data": [1.0, 1.0, 0.0], "dtype": "float32"},
+    "params": {},
+    "with_self": False,
+    "square_loss": False,
+    "skip_sum": True,
+    "expect_grad": x.grad.cpu().tolist(),
+})
+
 out = pathlib.Path(__file__).resolve().parent.parent / "nutorchd" / "tests" / "golden.json"
+
 
 
 

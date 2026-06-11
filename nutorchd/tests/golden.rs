@@ -13,7 +13,7 @@ const GOLDEN: &str = include_str!("golden.json");
 #[test]
 fn golden_cases_agree_with_real_pytorch() {
     let cases: Vec<serde_json::Value> = serde_json::from_str(GOLDEN).expect("golden.json parses");
-    assert!(cases.len() >= 225, "suspiciously few golden cases");
+    assert!(cases.len() >= 236, "suspiciously few golden cases");
 
     let mut failures = Vec::new();
     for case in &cases {
@@ -155,6 +155,14 @@ fn run_grad_case(case: &serde_json::Value) -> Result<(), String> {
     let params = case["params"].as_object().cloned().unwrap_or_default();
     let operands: Vec<String> = if case["with_self"].as_bool().unwrap_or(false) {
         vec![x.clone(), x.clone()]
+    } else if case.get("target").is_some_and(|t| !t.is_null()) {
+        // A DISTINCT non-grad leaf (loss targets carry no gradient).
+        let target = &case["target"];
+        let kind = convert::parse_kind(target["dtype"].as_str())
+            .map_err(|e| format!("bad target dtype: {e}"))?;
+        let tensor = convert::json_to_tensor(&target["data"], kind, Device::Mps)
+            .map_err(|e| format!("bad target data: {e}"))?;
+        vec![x.clone(), registry.insert_tensor(tensor)]
     } else {
         vec![x.clone()]
     };
@@ -163,7 +171,10 @@ fn run_grad_case(case: &serde_json::Value) -> Result<(), String> {
         .cloned()
         .ok_or("op produced no handle")?;
 
-    let loss = if case["square_loss"].as_bool().unwrap_or(false) {
+    let loss = if case["skip_sum"].as_bool().unwrap_or(false) {
+        // Losses with mean reduction are already scalar.
+        y.clone()
+    } else if case["square_loss"].as_bool().unwrap_or(false) {
         let squared = run(
             &mut registry,
             "mul",

@@ -112,3 +112,50 @@ exp-2 hyphen lesson), the eight/nine wording fixed. The reviewer verified all
 nine tch signatures with argument orders (no transpositions), the Reduction enum
 mapping, MPS support for all nine in the linked torch, and the PyTorch defaults
 (ignore_index −100, label_smoothing 0, beta/delta 1.0, reduction mean).
+
+## Result
+
+**Result:** Pass
+
+Nine losses landed as pure table rows — zero client, protocol, registry, or
+nn.rs changes, exactly the 0005 sweep recipe.
+
+- **Goldens: 12/12 first run** (237 total, floor 236; byte-stable at sha256
+  `1bc90a78…`): every loss exact vs `torch.nn.functional` on MPS (zero oracle
+  exclusions), the three mse reduction variants, and the mse gradient case
+  through the new distinct-non-grad-target harness path.
+- **Unit test**: bad `--reduction` errors naming the three choices (68 daemon
+  tests).
+- **Live**: the full loss-driven gradient path Experiment 4's optimizer will
+  consume — explicit-weight linear → `forward` → `mse_loss` → `backward` →
+  weight gradient via `nn parameters` — with the loss value hand-verified (mean
+  of `[0.25, 2.25, 6.25]` = 2.9167); `--reduction
+  sum`/`none` change value and
+  shape as expected; `cross_entropy` with int64 class indices; `torch ops` lists
+  the `loss` category.
+- **Hygiene**: build 0 warnings; fmt/dprint clean; full suite green; `v1/`
+  untouched.
+
+## Conclusion
+
+The loom keeps paying: nine ops in one short pass, with the design review's
+`broadcasts: false` decision proving load-bearing (the class-index losses work
+precisely because the elementwise pre-check is skipped). The grad-golden harness
+now supports non-grad targets — a shape every future loss case reuses. Next:
+Experiment 4 — optimizer objects (`optim://`), `step`, and the training-loop
+acceptance.
+
+## Result Review
+
+**Reviewer:** `adversarial-reviewer` subagent (fresh context, read-only),
+reviewing the pre-commit working tree. **Verdict: APPROVED — no Required,
+Optional, or Nit findings.** The reviewer verified all four design-review
+mandates in code, checked every tch signature's argument order against the
+implementation (no transpositions; defaults −100/0.0/1.0 correct), reproduced
+byte-stable golden regeneration, spot-checked all twelve loss goldens against
+fresh `torch.nn.functional` on MPS including the non-default `--beta`/`--delta`
+values (proving the params are wired, not silently defaulted), ran the live
+loss-to-weight-gradient path with a hand-verified gradient, and confirmed the
+class-index shapes succeed precisely because `broadcasts: false` skips the
+elementwise pre-check — the design review's load-bearing decision, observed
+working.

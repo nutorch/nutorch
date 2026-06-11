@@ -561,6 +561,19 @@ fn init_linear_param(shape: &[i64], in_features: i64) -> Result<Tensor, (&'stati
     Ok(uniform.set_requires_grad(true))
 }
 
+/// `--reduction mean|sum|none` (PyTorch's values; default mean).
+fn parse_reduction(p: &Params) -> Result<tch::Reduction, OpError> {
+    match p.str("reduction") {
+        None | Some("mean") => Ok(tch::Reduction::Mean),
+        Some("sum") => Ok(tch::Reduction::Sum),
+        Some("none") => Ok(tch::Reduction::None),
+        Some(other) => Err((
+            "bad_argument",
+            format!("invalid reduction: {other} (expected mean, sum, or none)"),
+        )),
+    }
+}
+
 /// nutorchd is GPU-only (issue 0003): Mac-only for now, so the GPU is MPS.
 pub fn require_mps() -> Result<(), String> {
     if tch::utils::has_mps() {
@@ -1515,6 +1528,42 @@ fn apply(
             }
             Ok(Applied::Nothing)
         }
+        // --- losses (issue 0009 exp 3) ---
+        "mse_loss" => one(op, t[0].f_mse_loss(t[1], parse_reduction(p)?)),
+        "l1_loss" => one(op, t[0].f_l1_loss(t[1], parse_reduction(p)?)),
+        "smooth_l1_loss" => one(
+            op,
+            t[0].f_smooth_l1_loss(t[1], parse_reduction(p)?, p.float("beta").unwrap_or(1.0)),
+        ),
+        "huber_loss" => one(
+            op,
+            t[0].f_huber_loss(t[1], parse_reduction(p)?, p.float("delta").unwrap_or(1.0)),
+        ),
+        "cross_entropy" => one(
+            op,
+            t[0].f_cross_entropy_loss(t[1], None::<&Tensor>, parse_reduction(p)?, -100, 0.0),
+        ),
+        "nll_loss" => one(
+            op,
+            t[0].f_nll_loss(t[1], None::<&Tensor>, parse_reduction(p)?, -100),
+        ),
+        "binary_cross_entropy" => one(
+            op,
+            t[0].f_binary_cross_entropy(t[1], None::<&Tensor>, parse_reduction(p)?),
+        ),
+        "binary_cross_entropy_with_logits" => one(
+            op,
+            t[0].f_binary_cross_entropy_with_logits(
+                t[1],
+                None::<&Tensor>,
+                None::<&Tensor>,
+                parse_reduction(p)?,
+            ),
+        ),
+        "kl_div" => one(
+            op,
+            t[0].f_kl_div(t[1], parse_reduction(p)?, p.bool("log_target")),
+        ),
         "manual_seed" => {
             tch::manual_seed(p.int("seed").expect("required"));
             Ok(Applied::Nothing)
@@ -2656,6 +2705,31 @@ mod module_foundation_semantics {
             json!({"op":"nn","kind":"sequential","args":{"children":[]}}),
         ) {
             Response::Error { code, .. } => assert_eq!(code, "bad_argument"),
+            other => panic!("expected error, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod loss_semantics {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn bad_reduction_names_the_choices() {
+        let mut registry = Registry::new();
+        let t = convert::json_to_tensor(&json!([1.0]), Kind::Float, Device::Mps).unwrap();
+        let a = registry.insert_tensor(t);
+        let t = convert::json_to_tensor(&json!([2.0]), Kind::Float, Device::Mps).unwrap();
+        let b = registry.insert_tensor(t);
+        let spec = nutorch_ops::find("mse_loss").unwrap();
+        let mut params = serde_json::Map::new();
+        params.insert("reduction".into(), json!("median"));
+        match execute_table(&mut registry, spec, &[a, b], &params) {
+            Response::Error { code, error, .. } => {
+                assert_eq!(code, "bad_argument");
+                assert!(error.contains("mean, sum, or none"));
+            }
             other => panic!("expected error, got {other:?}"),
         }
     }

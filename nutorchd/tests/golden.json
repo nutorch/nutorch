@@ -6873,5 +6873,435 @@
       0.08776172250509262,
       0.24373182654380798
     ]
+  },
+  {
+    "name": "loss_mse",
+    "op": "mse_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            0.2,
+            0.8
+          ],
+          [
+            0.6,
+            0.4
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        0.09999999403953552
+      ]
+    }
+  },
+  {
+    "name": "loss_mse_sum",
+    "op": "mse_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            0.2,
+            0.8
+          ],
+          [
+            0.6,
+            0.4
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {
+      "reduction": "sum"
+    },
+    "expect": {
+      "values": [
+        0.3999999761581421
+      ]
+    }
+  },
+  {
+    "name": "loss_mse_none",
+    "op": "mse_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            0.2,
+            0.8
+          ],
+          [
+            0.6,
+            0.4
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {
+      "reduction": "none"
+    },
+    "expect": {
+      "values": [
+        [
+          [
+            0.04000000283122063,
+            0.03999999538064003
+          ],
+          [
+            0.15999998152256012,
+            0.1600000113248825
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "name": "loss_l1",
+    "op": "l1_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            0.2,
+            0.8
+          ],
+          [
+            0.6,
+            0.4
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        0.30000001192092896
+      ]
+    }
+  },
+  {
+    "name": "loss_smooth_l1",
+    "op": "smooth_l1_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            0.2,
+            0.8
+          ],
+          [
+            0.6,
+            0.4
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {
+      "beta": 0.5
+    },
+    "expect": {
+      "values": [
+        0.09999999403953552
+      ]
+    }
+  },
+  {
+    "name": "loss_huber",
+    "op": "huber_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            0.2,
+            0.8
+          ],
+          [
+            0.6,
+            0.4
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {
+      "delta": 0.5
+    },
+    "expect": {
+      "values": [
+        0.04999999701976776
+      ]
+    }
+  },
+  {
+    "name": "loss_cross_entropy",
+    "op": "cross_entropy",
+    "tensors": [
+      {
+        "data": [
+          [
+            2.0,
+            0.5,
+            -1.0
+          ],
+          [
+            0.1,
+            1.5,
+            0.3
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          0,
+          2
+        ],
+        "dtype": "int64"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        0.9390701055526733
+      ]
+    }
+  },
+  {
+    "name": "loss_nll",
+    "op": "nll_loss",
+    "tensors": [
+      {
+        "data": [
+          [
+            -0.5,
+            -1.2,
+            -2.0
+          ],
+          [
+            -1.0,
+            -0.3,
+            -2.5
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          1,
+          0
+        ],
+        "dtype": "int64"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        1.100000023841858
+      ]
+    }
+  },
+  {
+    "name": "loss_bce",
+    "op": "binary_cross_entropy",
+    "tensors": [
+      {
+        "data": [
+          0.8,
+          0.2,
+          0.6
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          1.0,
+          0.0,
+          1.0
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        0.319037526845932
+      ]
+    }
+  },
+  {
+    "name": "loss_bce_logits",
+    "op": "binary_cross_entropy_with_logits",
+    "tensors": [
+      {
+        "data": [
+          1.5,
+          -0.5,
+          0.2
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          1.0,
+          0.0,
+          1.0
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        0.4245430529117584
+      ]
+    }
+  },
+  {
+    "name": "loss_kl_div",
+    "op": "kl_div",
+    "tensors": [
+      {
+        "data": [
+          [
+            -1.0,
+            -0.5,
+            -2.0
+          ]
+        ],
+        "dtype": "float32"
+      },
+      {
+        "data": [
+          [
+            0.3,
+            0.5,
+            0.2
+          ]
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "params": {},
+    "expect": {
+      "values": [
+        -0.026550989598035812
+      ]
+    }
+  },
+  {
+    "name": "loss_mse_grad",
+    "grad_op": "mse_loss",
+    "input": {
+      "data": [
+        0.5,
+        1.5,
+        -0.5
+      ],
+      "dtype": "float32"
+    },
+    "target": {
+      "data": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "dtype": "float32"
+    },
+    "params": {},
+    "with_self": false,
+    "square_loss": false,
+    "skip_sum": true,
+    "expect_grad": [
+      -0.3333333432674408,
+      0.3333333432674408,
+      -0.3333333432674408
+    ]
   }
 ]

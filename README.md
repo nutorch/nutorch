@@ -56,6 +56,10 @@ torch nn parameters $m                           # tensor:// handles — LIVE vi
 torch nn info $m
 ```
 
+Losses are ordinary ops: `torch mse_loss $pred $target | torch backward` (also
+`cross_entropy`, `l1_loss`, `binary_cross_entropy_with_logits`, … — see
+`torch ops` under `loss`).
+
 Parameter handles alias the module's weights (the live-view contract): gradients
 populate through them after `backward`, and optimizer steps (coming in this
 issue) will be visible through them. Pretrained weights load at construction:
