@@ -155,6 +155,98 @@ cases.append(
     }
 )
 
+# --- pointwise sweep (issue 0005 exp 2): data-driven ---
+# Domain-aware samples per unary op.
+UNARY_SAMPLES = {
+    "abs": [-2.5, 0.0, 3.0],
+    "acos": [-0.9, 0.0, 0.9],
+    "acosh": [1.0, 1.5, 3.0],
+    "asin": [-0.9, 0.0, 0.9],
+    "asinh": [-2.0, 0.0, 2.0],
+    "atan": [-2.0, 0.0, 2.0],
+    "atanh": [-0.9, 0.0, 0.9],
+    "ceil": [-1.5, 0.2, 2.7],
+    "cos": [0.0, 1.0, 3.14159],
+    "cosh": [-1.0, 0.0, 1.0],
+    "deg2rad": [0.0, 90.0, 180.0],
+    "digamma": [0.5, 1.0, 3.5],
+    "erf": [-1.0, 0.0, 1.0],
+    "erfc": [-1.0, 0.0, 1.0],
+    "exp": [-1.0, 0.0, 2.0],
+    "exp2": [-1.0, 0.0, 3.0],
+    "expm1": [-0.5, 0.0, 0.5],
+    "floor": [-1.5, 0.2, 2.7],
+    "frac": [-1.75, 0.25, 2.5],
+    "i0": [0.0, 1.0, 2.0],
+    "lgamma": [0.5, 1.0, 4.0],
+    "log": [0.5, 1.0, 10.0],
+    "log10": [0.1, 1.0, 100.0],
+    "log1p": [-0.5, 0.0, 1.0],
+    "log2": [0.5, 1.0, 8.0],
+    "logit": [0.1, 0.5, 0.9],
+    "neg": [-2.0, 0.0, 3.0],
+    "rad2deg": [0.0, 1.5707963267948966, 3.141592653589793],
+    "reciprocal": [0.5, 1.0, 4.0],
+    "relu": [-2.0, 0.0, 3.0],
+    "round": [-1.5, 0.4, 2.5],
+    "rsqrt": [0.25, 1.0, 4.0],
+    "sgn": [-2.0, 0.0, 3.0],
+    "sigmoid": [-2.0, 0.0, 2.0],
+    "sign": [-2.0, 0.0, 3.0],
+    "sinc": [-0.5, 0.0, 0.5],
+    "sinh": [-1.0, 0.0, 1.0],
+    "sqrt": [0.0, 1.0, 9.0],
+    "square": [-2.0, 0.0, 3.0],
+    "tan": [-0.5, 0.0, 0.5],
+    "tanh": [-1.0, 0.0, 1.0],
+    "trunc": [-1.7, 0.3, 2.7],
+}
+for name, sample in UNARY_SAMPLES.items():
+    ok(f"pw_{name}", name, [t(sample)], {},
+       lambda ts, f=getattr(torch, name): [f(ts[0])])
+
+ok("pw_softmax", "softmax", [t([[1, 2, 3], [1, 1, 1]])], {"dim": 1},
+   lambda ts: [torch.softmax(ts[0], dim=1)])
+ok("pw_log_softmax", "log_softmax", [t([[1, 2, 3]])], {"dim": 1},
+   lambda ts: [torch.log_softmax(ts[0], dim=1)])
+# nan_to_num: golden inputs must be finite (bare NaN/Infinity are not valid
+# JSON); this case covers param plumbing + identity-on-finite. The real
+# NaN/inf replacement semantics live in a Rust dispatch unit test, which can
+# construct non-finite tensors directly.
+ok("pw_nan_to_num_finite", "nan_to_num", [t([1.0, -2.0, 3.0])],
+   {"nan": 0.5, "posinf": 100.0, "neginf": -100.0},
+   lambda ts: [torch.nan_to_num(ts[0], nan=0.5, posinf=100.0, neginf=-100.0)])
+
+# Binary, broadcasting: (a, b) samples chosen in-domain.
+BINARY_SAMPLES = {
+    "mul": ([1.5, -2.0, 3.0], [2.0, 0.5, -1.0]),
+    "div": ([3.0, -8.0, 1.0], [2.0, 4.0, -0.5]),
+    "maximum": ([1.0, 5.0, -3.0], [2.0, 4.0, -1.0]),
+    "minimum": ([1.0, 5.0, -3.0], [2.0, 4.0, -1.0]),
+    "atan2": ([1.0, -1.0, 0.5], [1.0, 1.0, -0.5]),
+    "fmod": ([5.0, -7.0, 9.5], [3.0, 3.0, 2.0]),
+    "remainder": ([5.0, -7.0, 9.5], [3.0, 3.0, 2.0]),
+    "floor_divide": ([5.0, -7.0, 9.5], [3.0, 3.0, 2.0]),
+    "hypot": ([3.0, 5.0, 8.0], [4.0, 12.0, 15.0]),
+    "copysign": ([1.5, -2.5, 3.5], [-1.0, 1.0, -1.0]),
+    "xlogy": ([0.0, 2.0, 3.0], [1.0, 2.0, 0.5]),
+    "logaddexp": ([-1.0, 0.0, 2.0], [1.0, 0.0, -2.0]),
+}
+for name, (a, b) in BINARY_SAMPLES.items():
+    ok(f"pw_{name}", name, [t(a), t(b)], {},
+       lambda ts, f=getattr(torch, name): [f(ts[0], ts[1])])
+ok("pw_mul_broadcast", "mul", [t([[1, 2], [3, 4]]), t([10, 20])], {},
+   lambda ts: [ts[0] * ts[1]])
+
+# --alpha: signs differ between add and sub (PyTorch semantics).
+ok("pw_add_alpha", "add", [t([10.0, 10.0]), t([1.0, 2.0])], {"alpha": 2},
+   lambda ts: [torch.add(ts[0], ts[1], alpha=2)])
+ok("pw_sub_alpha", "sub", [t([10.0, 10.0]), t([1.0, 2.0])], {"alpha": 2},
+   lambda ts: [torch.sub(ts[0], ts[1], alpha=2)])
+ok("pw_add_alpha_float", "add", [t([1.0, 2.0]), t([3.0, 4.0])], {"alpha": 0.5},
+   lambda ts: [torch.add(ts[0], ts[1], alpha=0.5)])
+
 out = pathlib.Path(__file__).resolve().parent.parent / "nutorchd" / "tests" / "golden.json"
+
 out.write_text(json.dumps(cases, indent=2) + "\n")
 print(f"wrote {len(cases)} cases to {out}")

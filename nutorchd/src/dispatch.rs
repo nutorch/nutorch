@@ -380,9 +380,101 @@ fn one(op: &str, result: Result<Tensor, tch::TchError>) -> Result<Applied, OpErr
 fn apply(spec: &OpSpec, t: &[&Tensor], p: &Params) -> Result<Applied, OpError> {
     let op = spec.name;
     match op {
-        "add" => one(op, t[0].f_add(t[1])),
-        "sub" => one(op, t[0].f_sub(t[1])),
+        // add: a + alpha*b; sub: a - alpha*b (PyTorch semantics; tch's f_add
+        // has no alpha parameter, so alpha scales the right operand first).
+        "add" | "sub" => {
+            let result = match p.scalar("alpha") {
+                None | Some(Scalar::Int(1)) => {
+                    if op == "add" {
+                        t[0].f_add(t[1])
+                    } else {
+                        t[0].f_sub(t[1])
+                    }
+                }
+                Some(alpha) => {
+                    let scaled = match alpha {
+                        Scalar::Int(i) => t[1].f_mul_scalar(i),
+                        Scalar::Float(f) => t[1].f_mul_scalar(f),
+                    }
+                    .map_err(|e| tch(op, e))?;
+                    if op == "add" {
+                        t[0].f_add(&scaled)
+                    } else {
+                        t[0].f_sub(&scaled)
+                    }
+                }
+            };
+            one(op, result)
+        }
         "sin" => one(op, t[0].f_sin()),
+        // --- pointwise sweep (issue 0005 exp 2): unary ---
+        "abs" => one(op, t[0].f_abs()),
+        "acos" => one(op, t[0].f_acos()),
+        "acosh" => one(op, t[0].f_acosh()),
+        "asin" => one(op, t[0].f_asin()),
+        "asinh" => one(op, t[0].f_asinh()),
+        "atan" => one(op, t[0].f_atan()),
+        "atanh" => one(op, t[0].f_atanh()),
+        "ceil" => one(op, t[0].f_ceil()),
+        "cos" => one(op, t[0].f_cos()),
+        "cosh" => one(op, t[0].f_cosh()),
+        "deg2rad" => one(op, t[0].f_deg2rad()),
+        "digamma" => one(op, t[0].f_digamma()),
+        "erf" => one(op, t[0].f_erf()),
+        "erfc" => one(op, t[0].f_erfc()),
+        "exp" => one(op, t[0].f_exp()),
+        "exp2" => one(op, t[0].f_exp2()),
+        "expm1" => one(op, t[0].f_expm1()),
+        "floor" => one(op, t[0].f_floor()),
+        "frac" => one(op, t[0].f_frac()),
+        "i0" => one(op, t[0].f_i0()),
+        "lgamma" => one(op, t[0].f_lgamma()),
+        "log" => one(op, t[0].f_log()),
+        "log10" => one(op, t[0].f_log10()),
+        "log1p" => one(op, t[0].f_log1p()),
+        "log2" => one(op, t[0].f_log2()),
+        "logit" => one(op, t[0].f_logit(None::<f64>)),
+        "neg" => one(op, t[0].f_neg()),
+        "rad2deg" => one(op, t[0].f_rad2deg()),
+        "reciprocal" => one(op, t[0].f_reciprocal()),
+        "relu" => one(op, t[0].f_relu()),
+        "round" => one(op, t[0].f_round()),
+        "rsqrt" => one(op, t[0].f_rsqrt()),
+        "sgn" => one(op, t[0].f_sgn()),
+        "sigmoid" => one(op, t[0].f_sigmoid()),
+        "sign" => one(op, t[0].f_sign()),
+        "sinc" => one(op, t[0].f_sinc()),
+        "sinh" => one(op, t[0].f_sinh()),
+        "sqrt" => one(op, t[0].f_sqrt()),
+        "square" => one(op, t[0].f_square()),
+        "tan" => one(op, t[0].f_tan()),
+        "tanh" => one(op, t[0].f_tanh()),
+        "trunc" => one(op, t[0].f_trunc()),
+        "softmax" => one(
+            op,
+            t[0].f_softmax(p.int("dim").expect("required"), Kind::Float),
+        ),
+        "log_softmax" => one(
+            op,
+            t[0].f_log_softmax(p.int("dim").expect("required"), Kind::Float),
+        ),
+        "nan_to_num" => one(
+            op,
+            t[0].f_nan_to_num(p.float("nan"), p.float("posinf"), p.float("neginf")),
+        ),
+        // --- pointwise sweep: binary, broadcasting ---
+        "mul" => one(op, t[0].f_mul(t[1])),
+        "div" => one(op, t[0].f_div(t[1])),
+        "maximum" => one(op, t[0].f_maximum(t[1])),
+        "minimum" => one(op, t[0].f_minimum(t[1])),
+        "atan2" => one(op, t[0].f_atan2(t[1])),
+        "fmod" => one(op, t[0].f_fmod_tensor(t[1])),
+        "remainder" => one(op, t[0].f_remainder_tensor(t[1])),
+        "floor_divide" => one(op, t[0].f_floor_divide(t[1])),
+        "hypot" => one(op, t[0].f_hypot(t[1])),
+        "copysign" => one(op, t[0].f_copysign(t[1])),
+        "xlogy" => one(op, t[0].f_xlogy(t[1])),
+        "logaddexp" => one(op, t[0].f_logaddexp(t[1])),
         "pow" => match p.scalar("exponent").expect("required") {
             Scalar::Int(i) => one(op, t[0].f_pow_tensor_scalar(i)),
             Scalar::Float(f) => one(op, t[0].f_pow_tensor_scalar(f)),
@@ -759,5 +851,42 @@ mod tests {
             .pop()
             .unwrap();
         assert_eq!(value_of(&mut registry, &joined), json!([1.0, 2.0, 3.0]));
+    }
+}
+
+#[cfg(test)]
+mod nan_to_num_semantics {
+    use super::*;
+    use serde_json::json;
+
+    /// Golden inputs must be finite JSON, so the real NaN/inf replacement
+    /// semantics are proven here with directly constructed non-finite values.
+    #[test]
+    fn nan_to_num_replaces_non_finite_values() {
+        let mut registry = Registry::new();
+        let numerator =
+            convert::json_to_tensor(&json!([0.0, 1.0, -1.0]), Kind::Float, Device::Mps).unwrap();
+        let zero = convert::json_to_tensor(&json!([0.0]), Kind::Float, Device::Mps).unwrap();
+        let non_finite = numerator.f_div(&zero).unwrap(); // [NaN, inf, -inf]
+        let handle = registry.insert(non_finite);
+        let spec = nutorch_ops::find("nan_to_num").unwrap();
+        let mut params = serde_json::Map::new();
+        params.insert("nan".into(), json!(0.5));
+        params.insert("posinf".into(), json!(100.0));
+        params.insert("neginf".into(), json!(-100.0));
+        let response = execute_table(&mut registry, spec, &[handle], &params);
+        let out = match response {
+            Response::Handles { handles, .. } => handles[0].clone(),
+            other => panic!("expected handles, got {other:?}"),
+        };
+        let cpu = registry
+            .get(&out)
+            .unwrap()
+            .f_to_device(Device::Cpu)
+            .unwrap();
+        assert_eq!(
+            convert::tensor_to_json(&cpu).unwrap(),
+            json!([0.5, 100.0, -100.0])
+        );
     }
 }

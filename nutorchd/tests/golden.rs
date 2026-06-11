@@ -13,7 +13,7 @@ const GOLDEN: &str = include_str!("golden.json");
 #[test]
 fn golden_cases_agree_with_real_pytorch() {
     let cases: Vec<serde_json::Value> = serde_json::from_str(GOLDEN).expect("golden.json parses");
-    assert!(cases.len() >= 25, "suspiciously few golden cases");
+    assert!(cases.len() >= 85, "suspiciously few golden cases");
 
     let mut failures = Vec::new();
     for case in &cases {

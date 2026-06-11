@@ -79,24 +79,57 @@ const fn pos(name: &'static str, kind: ParamKind) -> ParamSpec {
     }
 }
 
+const fn req_flag(name: &'static str, kind: ParamKind) -> ParamSpec {
+    ParamSpec {
+        name,
+        kind,
+        positional: false,
+        required: true,
+    }
+}
+
+const fn unary(name: &'static str, summary: &'static str) -> OpSpec {
+    OpSpec {
+        name,
+        category: "pointwise",
+        tensors: Arity::Exactly(1),
+        params: &[],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary,
+    }
+}
+
+const fn binary_bcast(name: &'static str, summary: &'static str) -> OpSpec {
+    OpSpec {
+        name,
+        category: "pointwise",
+        tensors: Arity::Exactly(2),
+        params: &[],
+        results: ResultKind::Handles(1),
+        broadcasts: true,
+        summary,
+    }
+}
+
 pub static OPS: &[OpSpec] = &[
     OpSpec {
         name: "add",
         category: "pointwise",
         tensors: Arity::Exactly(2),
-        params: &[],
+        params: &[flag("alpha", ParamKind::Scalar)],
         results: ResultKind::Handles(1),
         broadcasts: true,
-        summary: "elementwise sum (broadcasting)",
+        summary: "a + alpha*b (broadcasting; --alpha default 1)",
     },
     OpSpec {
         name: "sub",
         category: "pointwise",
         tensors: Arity::Exactly(2),
-        params: &[],
+        params: &[flag("alpha", ParamKind::Scalar)],
         results: ResultKind::Handles(1),
         broadcasts: true,
-        summary: "elementwise difference (broadcasting)",
+        summary: "a - alpha*b (broadcasting; --alpha default 1)",
     },
     OpSpec {
         name: "sin",
@@ -228,6 +261,95 @@ pub static OPS: &[OpSpec] = &[
         broadcasts: false,
         summary: "standard-normal random tensor (float kinds only)",
     },
+    // --- pointwise sweep (issue 0005 exp 2) ---
+    unary("abs", "elementwise absolute value"),
+    unary("acos", "elementwise arccosine"),
+    unary("acosh", "elementwise inverse hyperbolic cosine"),
+    unary("asin", "elementwise arcsine"),
+    unary("asinh", "elementwise inverse hyperbolic sine"),
+    unary("atan", "elementwise arctangent"),
+    unary("atanh", "elementwise inverse hyperbolic tangent"),
+    unary("ceil", "elementwise ceiling"),
+    unary("cos", "elementwise cosine"),
+    unary("cosh", "elementwise hyperbolic cosine"),
+    unary("deg2rad", "degrees to radians"),
+    unary("digamma", "elementwise digamma"),
+    unary("erf", "elementwise error function"),
+    unary("erfc", "elementwise complementary error function"),
+    unary("exp", "elementwise e^x"),
+    unary("exp2", "elementwise 2^x"),
+    unary("expm1", "elementwise e^x - 1"),
+    unary("floor", "elementwise floor"),
+    unary("frac", "elementwise fractional part"),
+    unary("i0", "elementwise modified Bessel function I0"),
+    unary("lgamma", "elementwise log-gamma"),
+    unary("log", "elementwise natural log"),
+    unary("log10", "elementwise log base 10"),
+    unary("log1p", "elementwise log(1+x)"),
+    unary("log2", "elementwise log base 2"),
+    unary("logit", "elementwise logit (inverse sigmoid)"),
+    unary("neg", "elementwise negation"),
+    unary("rad2deg", "radians to degrees"),
+    unary("reciprocal", "elementwise 1/x"),
+    unary("relu", "elementwise max(x, 0)"),
+    unary("round", "elementwise round to nearest"),
+    unary("rsqrt", "elementwise 1/sqrt(x)"),
+    unary("sgn", "elementwise sign (complex-aware)"),
+    unary("sigmoid", "elementwise sigmoid"),
+    unary("sign", "elementwise sign"),
+    unary("sinc", "elementwise normalized sinc"),
+    unary("sinh", "elementwise hyperbolic sine"),
+    unary("sqrt", "elementwise square root"),
+    unary("square", "elementwise x^2"),
+    unary("tan", "elementwise tangent"),
+    unary("tanh", "elementwise hyperbolic tangent"),
+    unary("trunc", "elementwise truncation toward zero"),
+    OpSpec {
+        name: "softmax",
+        category: "pointwise",
+        tensors: Arity::Exactly(1),
+        params: &[req_flag("dim", ParamKind::Int)],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary: "softmax along --dim (float32)",
+    },
+    OpSpec {
+        name: "log_softmax",
+        category: "pointwise",
+        tensors: Arity::Exactly(1),
+        params: &[req_flag("dim", ParamKind::Int)],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary: "log-softmax along --dim (float32)",
+    },
+    OpSpec {
+        name: "nan_to_num",
+        category: "pointwise",
+        tensors: Arity::Exactly(1),
+        params: &[
+            flag("nan", ParamKind::Float),
+            flag("posinf", ParamKind::Float),
+            flag("neginf", ParamKind::Float),
+        ],
+        results: ResultKind::Handles(1),
+        broadcasts: false,
+        summary: "replace NaN/inf (--nan/--posinf/--neginf)",
+    },
+    binary_bcast("mul", "elementwise product (broadcasting)"),
+    binary_bcast("div", "elementwise true division (broadcasting)"),
+    binary_bcast("maximum", "elementwise maximum (broadcasting)"),
+    binary_bcast("minimum", "elementwise minimum (broadcasting)"),
+    binary_bcast("atan2", "elementwise atan2(a, b) (broadcasting)"),
+    binary_bcast("fmod", "elementwise C-style remainder (broadcasting)"),
+    binary_bcast(
+        "remainder",
+        "elementwise Python-style remainder (broadcasting)",
+    ),
+    binary_bcast("floor_divide", "elementwise floor division (broadcasting)"),
+    binary_bcast("hypot", "elementwise hypotenuse (broadcasting)"),
+    binary_bcast("copysign", "magnitude of a, sign of b (broadcasting)"),
+    binary_bcast("xlogy", "elementwise x*log(y) (broadcasting)"),
+    binary_bcast("logaddexp", "elementwise log(e^a + e^b) (broadcasting)"),
     OpSpec {
         name: "manual_seed",
         category: "utility",
@@ -312,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn table_has_fifteen_ops() {
-        assert_eq!(OPS.len(), 15);
+    fn table_is_at_least_the_experiment_one_baseline() {
+        assert!(OPS.len() >= 15);
     }
 }

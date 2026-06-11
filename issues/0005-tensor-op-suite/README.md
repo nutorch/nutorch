@@ -170,4 +170,5 @@ inside it).
   — **Pass** (the loom works: 29/29 goldens vs real PyTorch; found the MPS RNG
   gap and a serde float-precision bug in the first hour)
 - [Experiment 2: The first pointwise sweep (~55 ops)](02-pointwise-sweep.md) —
-  **Designed**
+  **Pass** (57 ops landed, zero structural changes; goldens 29→90; one MPS
+  exclusion recorded: heaviside)
