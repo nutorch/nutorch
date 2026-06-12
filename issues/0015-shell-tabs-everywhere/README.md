@@ -70,6 +70,8 @@ Decisions taken with the user before opening (2026-06-12):
   — **Pass** (plugin + one shared script + unified key; fence-level identity
   across all 20 pages; CDP matrix incl. both-groups-one-click, hero cross-page,
   legacy migration; the node_modules/.astro cache surprise recorded)
+- [Experiment 2: The twins — Nushell pairs for the remaining examples](02-the-twins.md)
+  — **Designed**
 
 ## Scope
 
