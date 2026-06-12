@@ -75,16 +75,21 @@ Open questions for the experiment design:
 
 ## Conclusion
 
-**The goal is met.** A new Nushell session has `nutorch` commands with zero user
-configuration: the formula ships a one-line vendor-autoload stub that Nushell
-sources at startup, resting on the prefix-relative contract (both the stub's
-location and Nushell's search path derive from `HOMEBREW_PREFIX` by
-construction). Proven end to end by a rebuilt keg and a fresh unconfigured
-session on this machine. Users outside the contract (non-brew Nushell,
-from-source installs) get a documented one-line fallback, printed by
-`install.sh` and spelled out on the Nushell docs page. The published tap picks
-the stub up with the next tagged release. (The issue's first draft — a CLI
-symlink built on a misread request — was removed at user direction; its code
+**The goal is met — with a corrected verification record** (see the experiment's
+Correction section). A new INTERACTIVE Nushell session has `nutorch` commands
+with zero user configuration: the formula ships a one-line vendor-autoload stub
+that Nushell sources at config-loading startup, and the brew-built `nu` bakes
+the brew-prefix autoload dir in at compile time — a contract even sturdier than
+the spine's original framing, holding regardless of environment. The originally
+recorded `nu -c` proof was a FALSE POSITIVE (the output came from the same-named
+CLI symlink; `-c` skips config and therefore autoload entirely) — the corrected
+evidence is module-command existence in interactive sessions, confirmed by the
+user in his REPL. Scripts and `-c` one-liners load the module explicitly with
+`use`, the right practice for scripts anyway. Users outside the contract
+(non-brew Nushell, from-source installs) get a documented one-line fallback,
+printed by `install.sh` and spelled out on the Nushell docs page. The published
+tap picks the stub up with the next tagged release. (The issue's first draft — a
+CLI symlink built on a misread request — was removed at user direction; its code
 remains harmlessly in the tree, now brew-managed after the rebuild.)
 
 ## Scope
