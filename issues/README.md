@@ -2,8 +2,9 @@
 
 ## Open
 
-| # | Title | Opened |
-| - | ----- | ------ |
+| #                                    | Title                          | Opened     |
+| ------------------------------------ | ------------------------------ | ---------- |
+| [0013](0013-website-fixes/README.md) | Website fixes — the punch list | 2026-06-12 |
 
 ## Closed
 
