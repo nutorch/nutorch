@@ -157,6 +157,8 @@ nutorch/website/              ← lives in THIS repo (like termsurf)
 - [Experiment 3: The ops reference — generated from the table](03-ops-reference.md)
   — **Pass** (185 ops / 9 generated category pages; staleness gate bites; dprint
   fixed-point invariant proven on the first draft)
+- [Experiment 4: Search, sitemap, and the finishing pass](04-search-and-polish.md)
+  — **Designed**
 
 ## Scope
 
