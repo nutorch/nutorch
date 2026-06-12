@@ -2,14 +2,14 @@
 
 ## Open
 
-| #                                         | Title                                  | Opened     |
-| ----------------------------------------- | -------------------------------------- | ---------- |
-| [0016](0016-dual-input-nushell/README.md) | The Dual Input Pattern reaches Nushell | 2026-06-12 |
+| # | Title | Opened |
+| - | ----- | ------ |
 
 ## Closed
 
 | #                                                     | Title                                                                              | Opened     | Closed     |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- | ---------- |
+| [0016](0016-dual-input-nushell/README.md)             | The Dual Input Pattern reaches Nushell                                             | 2026-06-12 | 2026-06-12 |
 | [0015](0015-shell-tabs-everywhere/README.md)          | Shell tabs on every example                                                        | 2026-06-12 | 2026-06-12 |
 | [0014](0014-nutorch-cli-alias/README.md)              | `nutorch` in Nushell, with nothing to type                                         | 2026-06-12 | 2026-06-12 |
 | [0013](0013-website-fixes/README.md)                  | Website fixes — the punch list                                                     | 2026-06-12 | 2026-06-12 |

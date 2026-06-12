@@ -1,6 +1,7 @@
 +++
-status = "open"
+status = "closed"
 opened = "2026-06-12"
+closed = "2026-06-12"
 +++
 
 # Issue 16: The Dual Input Pattern reaches Nushell
@@ -71,6 +72,26 @@ contract than bash.
 - [Experiment 2: The docs straighten — both forms, both shells](02-the-docs-straighten.md)
   — **Pass** (all five pipeline-first hedges retired; both dual-input nu panels
   show both forms, verified live; count map unchanged)
+
+## Conclusion
+
+**The goal is met.** `nutorch add $a $b` and `$a | nutorch add $b` are equals —
+carried-forward principle #2 now holds in both shells, implemented ONCE: the
+wrappers forward positionals verbatim and pipe `$in` when present, and the CLI's
+stdin-prefix grammar fills the leftmost missing slots and owns all validation.
+173 wrappers regenerated (172 delegated table ops plus the prelude's `forward`,
+which the design review caught as its own violation); variadic and creation
+wrappers untouched; the 11/11 parity harness (`scripts/test-dual-input.nu`) is
+now a standing acceptance script. The docs straightened: both dual-input panels
+show both forms, verified live, and every "pipeline-first" hedge — five in the
+docs plus the module banner the result reviewer caught — is gone.
+
+Two contract subtleties the reviews pinned down for the record: an unneeded pipe
+is SILENTLY IGNORED (the grammar never reads stdin when no slots are missing —
+the retired XOR clause exists because conflict-detection reads block on
+terminals), and the CLI's under-supply message is context-dependent (TTY:
+"missing tensor operand(s)…"; non-TTY: "expected N piped handle(s), got 0"). The
+published keg module picks all of this up at the next release, as usual.
 
 ## Scope
 
