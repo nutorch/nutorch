@@ -41,7 +41,7 @@ const markLarge = await sharp(MARK).resize(340, 340).png().toBuffer();
 const ogText = Buffer.from(`<svg width="1200" height="630">
   <text x="450" y="300" font-family="Helvetica, Arial, sans-serif"
     font-weight="bold" font-size="110">
-    <tspan fill="#6fd877">nu</tspan><tspan fill="#ff8a4d">torch</tspan>
+    <tspan fill="#6fd877">Nu</tspan><tspan fill="#ff8a4d">Torch</tspan>
   </text>
   <text x="452" y="370" font-family="Helvetica, Arial, sans-serif"
     font-size="40" fill="#97a591">GPU tensors for every shell</text>

@@ -1,11 +1,11 @@
 ---
 title: Getting started
-description: Install nutorch with Homebrew and run your first GPU tensor pipeline from any shell.
+description: Install NuTorch with Homebrew and run your first GPU tensor pipeline from any shell.
 order: 1
 section: Start
 ---
 
-nutorch puts GPU tensors in your shell. A daemon (`nutorchd`) owns the tensors
+NuTorch puts GPU tensors in your shell. A daemon (`nutorchd`) owns the tensors
 and the GPU; the `torch` CLI sends it one operation per invocation and prints a
 **handle** — a plain string — to stdout. Handles flow through ordinary
 pipelines, so tensor programs compose the way shell programs always have.

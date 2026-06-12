@@ -83,3 +83,43 @@ nutorch.com, and reads about NuTorch.
 
 **Pass** = all five. **Fail** = the brand gate is inert, any fence line changed,
 or a rendered-prose lowercase "nutorch" survives outside code/URLs.
+
+## Result
+
+**Result:** Pass
+
+NuTorch is the name everywhere the site speaks; lowercase is everywhere the user
+types.
+
+- **Applied by category, as designed**: header/footer wordmark (`Nu`/`Torch`
+  two-tone), page titles (`NuTorch — GPU tensors…`, `404 — NuTorch`, the
+  `— NuTorch docs` suffix on all docs pages), `og:site_name`, the hero image
+  alt, the regenerated OG card, and five docs-prose mentions across four pages.
+  Every fence, command, path, domain, and CSS class is byte-untouched (git-diff
+  verified: the only changed lines in content are prose).
+- **The brand gate found violations the inventory missed** — the generated
+  reference pages render op-table summaries as prose, and three said "a
+  nutorch-ism" (topk, masked_select, where). Resolved at the DISPLAY layer,
+  keeping the no-Rust pledge: `gen-ops-reference.ts` capitalizes the proper noun
+  in summaries at generation time, while `torch <op> --help` keeps lowercase
+  (terminal output is code context). Reference regenerated; staleness gate
+  green.
+- **The gate also taught a rule**: URL-shaped tokens are identifiers, not prose
+  — the footer's visible `github.com/nutorch/nutorch` link text tripped the
+  first draft; the strip now removes domain/path tokens before judging.
+  Adversarial test: a planted prose `nutorch` on the ops page was named and
+  failed the gate; the pages full of legitimate code-span and URL occurrences
+  pass.
+- **Gates**: build clean (20 pages); `check:content` (now incl. the brand gate),
+  `check:links`, `check:ops-ref`, `check:theme` all green; dprint clean; zero
+  `.rs` diffs; `v1/` untouched. Screenshots both modes
+  (`logs/issue-0013/nutorch-brand-{light,dark}.png`) plus the regenerated OG
+  card inspected.
+
+## Conclusion
+
+The name-vs-code table held up — and the executable gate proved sharper than the
+manual inventory twice in one experiment (the generated summaries, the URL link
+text). Brand capitalization is now enforced by the build, not by proofreading.
+Recorded as untouched per scope: the repo README, formula `desc`, and
+`--version` string.

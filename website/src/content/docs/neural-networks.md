@@ -69,7 +69,7 @@ torch nn load $fresh model.safetensors    # into a same-architecture module
 ```
 
 The format is safetensors with PyTorch's state-dict naming (including
-`num_batches_tracked` for batch norm), so checkpoints move between nutorch and
+`num_batches_tracked` for batch norm), so checkpoints move between NuTorch and
 PyTorch in both directions.
 
 Complete runnable scripts live in the repo: `scripts/train-regression.sh`,

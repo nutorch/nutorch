@@ -3,7 +3,7 @@
 // 2. Every `torch <op>` used in docs fences is a real table op or a known
 //    client/registry verb, per `torch ops --json` from the real binary.
 import { execSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { INSTALL } from "../src/lib/install";
 
 const DOCS = new URL("../src/content/docs/", import.meta.url).pathname;
@@ -70,6 +70,42 @@ for (const literal of indexSource.matchAll(/`([\s\S]*?)`/g)) {
       console.error(`FAIL: index.astro: unknown verb 'torch ${verb}'`);
       failed = true;
     }
+  }
+}
+
+// 3. The brand gate (issue 0013 exp 6): in RENDERED prose, the name is
+// NuTorch. Lowercase `nutorch` is code — it may appear only inside
+// code/pre/script elements, attribute values, or URLs, all of which the
+// strip below removes. Runs only when a build exists.
+const DIST = new URL("../dist/", import.meta.url).pathname;
+function distHtmlFiles(dir: string): string[] {
+  const out: string[] = [];
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const name of entries) {
+    const path = `${dir}/${name}`;
+    if (statSync(path).isDirectory()) out.push(...distHtmlFiles(path));
+    else if (name.endsWith(".html")) out.push(path);
+  }
+  return out;
+}
+for (const file of distHtmlFiles(DIST)) {
+  let html = readFileSync(file, "utf8");
+  html = html.replace(/<(code|pre|script|style)[\s\S]*?<\/\1>/g, " ");
+  html = html.replace(/<[^>]*>/g, " "); // tags incl. all attribute values
+  // URL/path-shaped tokens (domains, repo paths) are identifiers, not
+  // prose: nutorch.com, github.com/nutorch/nutorch, ~/.nutorch, …
+  html = html.replace(/\S*nutorch[./]\S*/g, " ");
+  html = html.replace(/\S*[./~]nutorch\S*/g, " ");
+  for (const m of html.matchAll(/.{0,30}\bnutorch\b.{0,30}/g)) {
+    console.error(
+      `FAIL: ${file.replace(DIST, "")}: prose lowercase brand: …${m[0].trim()}…`,
+    );
+    failed = true;
   }
 }
 

@@ -114,7 +114,7 @@ usage: torch index_select <t1> <t2> [--dim <Int>]
 
 ### masked_select
 
-select by mask (numeric mask cast via != 0, a nutorch-ism)
+select by mask (numeric mask cast via != 0, a NuTorch-ism)
 
 ```
 usage: torch masked_select <t1> <t2>
@@ -122,7 +122,7 @@ usage: torch masked_select <t1> <t2>
 
 ### where
 
-cond ? x : y (numeric cond cast via != 0, a nutorch-ism)
+cond ? x : y (numeric cond cast via != 0, a NuTorch-ism)
 
 ```
 usage: torch where <t1> <t2> <t3>

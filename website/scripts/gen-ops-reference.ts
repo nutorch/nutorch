@@ -85,7 +85,11 @@ function page(category: string, index: number, entries: Op[]): string {
     "hand. Every op also documents itself: `torch <op> --help`.",
   ];
   for (const op of entries) {
-    lines.push("", `### ${op.name}`, "", op.summary, "", "```");
+    // Display layer: the summary is rendered prose, where the project
+    // name is the proper noun NuTorch (issue 0013 exp 6). The usage line
+    // stays verbatim — it is CLI output.
+    const summary = op.summary.replace(/\bnutorch\b/g, "NuTorch");
+    lines.push("", `### ${op.name}`, "", summary, "", "```");
     lines.push(usageLine(op.name), "```");
   }
   lines.push("");

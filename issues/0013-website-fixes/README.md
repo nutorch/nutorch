@@ -48,8 +48,10 @@ fixes and reserved "other things I may want to fix."
 - [Experiment 5: Hero shell tabs — bash/zsh and Nushell](05-hero-shell-tabs.md)
   — **Pass** (the nu example reproduced via the discriminating explicit-use form
   before display; CDP-proven tab swap + persistence in both modes)
-- [Experiment 6: NuTorch, the proper noun](06-nutorch-proper-noun.md) —
-  **Designed**
+- [Experiment 6: NuTorch, the proper noun](06-nutorch-proper-noun.md) — **Pass**
+  (name-vs-code table applied across titles, wordmark, OG, and prose; the new
+  brand gate caught generated-summary violations the inventory missed; fences
+  byte-untouched)
 
 ## Background
 

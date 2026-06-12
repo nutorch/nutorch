@@ -11,7 +11,7 @@ return to native Nushell values — no JSON wrangling.
 
 ## Setup
 
-**If you installed nutorch with Homebrew, there is nothing to set up.** The
+**If you installed NuTorch with Homebrew, there is nothing to set up.** The
 formula ships a vendor-autoload stub, Nushell sources it at startup, and
 `nutorch` commands are simply there in every new session — no `use` line, no
 `config.nu` edit. (Mechanism: Nushell autoloads every `.nu` file in

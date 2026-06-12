@@ -5,7 +5,7 @@ order: 4
 section: Core
 ---
 
-nutorch's operation surface is a single declarative table shared by the daemon
+NuTorch's operation surface is a single declarative table shared by the daemon
 and the CLI: **185 ops** spanning creation, pointwise math, linear algebra,
 reductions, shape manipulation, indexing, losses, and more.
 

@@ -162,7 +162,7 @@ usage: torch equal <t1> <t2>
 
 ### topk
 
-top-k values+indices (--smallest = PyTorch largest=False, a nutorch-ism)
+top-k values+indices (--smallest = PyTorch largest=False, a NuTorch-ism)
 
 ```
 usage: torch topk <t1> <k> [--dim <Int>] [--smallest]
