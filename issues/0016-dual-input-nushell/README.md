@@ -40,8 +40,11 @@ contract than bash.
   - `$in` present → `$in` fills the leftmost tensor slot; positionals shift
     right (first positional is the SECOND tensor).
   - no `$in` → positionals fill slots left to right.
-  - Both present where both fit (e.g. a two-tensor op given `$in` plus two
-    positionals) is an arity error with a clear message, mirroring the CLI.
+  - `$in` present with NO slots missing → the pipe is SILENTLY IGNORED,
+    mirroring the CLI exactly (review correction: the stdin-prefix grammar "is
+    never read when nothing is missing" — the retired XOR clause exists
+    precisely because conflict-detection reads block on terminals). The arity
+    error that DOES exist is too many positionals, with or without a pipe.
 - **Type signatures loosen where needed**: optional leading positionals mean
   `[t1?: string, t2?: string, --alpha: number]` shapes and an input type of
   `any` (string handle or nothing) — the generator owns the disambiguation logic
@@ -58,6 +61,11 @@ contract than bash.
 - **Verification shape**: golden parity in nu — for a sample op set, both forms
   produce identical values; the arity-error path errors clearly; the full nu
   training script still passes; the website gates stay green.
+
+## Experiments
+
+- [Experiment 1: Generator delegation — one grammar, two shells](01-generator-delegation.md)
+  — **Designed**
 
 ## Scope
 
