@@ -154,6 +154,8 @@ nutorch/website/              ← lives in THIS repo (like termsurf)
   — **Pass** (8 pages, collection-driven sidebar, markdown Shiki proven; the
   honesty checker caught a fictional verb; screenshots caught the
   details-element sidebar bug)
+- [Experiment 3: The ops reference — generated from the table](03-ops-reference.md)
+  — **Designed**
 
 ## Scope
 
