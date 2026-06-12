@@ -74,6 +74,8 @@ rendered as flat text while everything else got the two-shell treatment.
 - [Experiment 2: The mirror — every pair, line for line](02-the-mirror.md) —
   **Pass** (15/15 pairs mirrored and gate-enforced by check:mirror; the vacuous
   `where bytes > 1mb` filter caught and fixed in three places)
+- [Experiment 3: Reference pairs — 185 ops join the two-shell site](03-reference-pairs.md)
+  — **Designed**
 
 ## Scope
 
